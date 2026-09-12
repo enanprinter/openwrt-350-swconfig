@@ -98,11 +98,13 @@ jobs:
       run: |
         echo "=== Importing cfw-leds package ===" | tee -a build.log
         CFW_REPO="https://github.com/enanprinter/cfw-leds.git"
-        TARGET_DIR="openwrt/package/utils"
+        TARGET_PARENT="openwrt/package/utils"
+        TARGET_DIR="$TARGET_PARENT/cfw-leds"
         TMP_DIR="/tmp/cfw-leds-src"
 
         echo "Repo: $CFW_REPO" | tee -a build.log
-        echo "Target: $TARGET_DIR" | tee -a build.log
+        echo "Target parent: $TARGET_PARENT" | tee -a build.log
+        echo "Expected final path: $TARGET_DIR" | tee -a build.log
 
         rm -rf "$TMP_DIR"
         if git clone --depth 1 "$CFW_REPO" "$TMP_DIR" 2>&1 | tee -a build.log; then
@@ -114,9 +116,24 @@ jobs:
 
         rm -rf "$TMP_DIR/.git"
 
-        mkdir -p "$(dirname "$TARGET_DIR")"
-        if cp -rv "$TMP_DIR" "$TARGET_DIR" 2>&1 | tee -a build.log; then
-          echo "✅ Copy to $TARGET_DIR succeeded." | tee -a build.log
+        # المستودع يحتوي على مجلد فرعي باسم cfw-leds، ننسخ المجلد نفسه (وليس محتوياته)
+        SRC_DIR="$TMP_DIR/cfw-leds"
+        if [ ! -d "$SRC_DIR" ]; then
+          echo "❌ ERROR: Expected subfolder '$SRC_DIR' not found." | tee -a build.log
+          echo "--- Listing TMP_DIR contents ---" | tee -a build.log
+          ls -la "$TMP_DIR" | tee -a build.log
+          exit 1
+        fi
+
+        # التأكد من وجود المجلد الأب
+        mkdir -p "$TARGET_PARENT"
+
+        # إزالة أي نسخة سابقة لتجنب التعارض
+        rm -rf "$TARGET_DIR"
+
+        # نسخ المجلد cfw-leds بكامله إلى openwrt/package/utils/
+        if cp -rv "$SRC_DIR" "$TARGET_PARENT"/ 2>&1 | tee -a build.log; then
+          echo "✅ Copy to $TARGET_PARENT succeeded." | tee -a build.log
         else
           echo "❌ Copy FAILED." | tee -a build.log
           exit 1
@@ -129,6 +146,7 @@ jobs:
         chmod -R u+rwX,go+rX "$TARGET_DIR" 2>&1 | tee -a build.log
         find "$TARGET_DIR" -type f -name "*.sh" -exec chmod +x {} \; 2>&1 | tee -a build.log
         find "$TARGET_DIR" -type f -name "Makefile" -exec chmod 644 {} \; 2>&1 | tee -a build.log
+        find "$TARGET_DIR/files" -type f -exec chmod +x {} \; 2>/dev/null || true
 
         echo "=== Verifying Makefile presence ===" | tee -a build.log
         if [ -f "$TARGET_DIR/Makefile" ]; then
