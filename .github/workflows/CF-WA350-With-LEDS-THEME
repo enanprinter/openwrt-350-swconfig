@@ -1,4 +1,4 @@
-name: Build OpenWrt for COMFAST CF-WA350 (with config diff)
+name: COMFAST CF-WA350 (with leds theme packages)
 
 on:
   workflow_dispatch:
