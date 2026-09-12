@@ -1,4 +1,4 @@
-name: Build OpenWrt for COMFAST CF-WA350 (with config diff + snapshots)
+name: Build OpenWrt for COMFAST CF-WA350 (with config diff)
 
 on:
   workflow_dispatch:
@@ -93,6 +93,54 @@ jobs:
         else
           echo "No 'files' directory found." | tee -a build.log
         fi
+
+    - name: Import cfw-leds package into openwrt/package/utils/
+      run: |
+        echo "=== Importing cfw-leds package ===" | tee -a build.log
+        CFW_REPO="https://github.com/enanprinter/cfw-leds.git"
+        TARGET_DIR="openwrt/package/utils/cfw-leds"
+        TMP_DIR="/tmp/cfw-leds-src"
+
+        echo "Repo: $CFW_REPO" | tee -a build.log
+        echo "Target: $TARGET_DIR" | tee -a build.log
+
+        rm -rf "$TMP_DIR"
+        if git clone --depth 1 "$CFW_REPO" "$TMP_DIR" 2>&1 | tee -a build.log; then
+          echo "✅ Clone succeeded." | tee -a build.log
+        else
+          echo "❌ Clone FAILED." | tee -a build.log
+          exit 1
+        fi
+
+        rm -rf "$TMP_DIR/.git"
+
+        mkdir -p "$(dirname "$TARGET_DIR")"
+        if cp -rv "$TMP_DIR" "$TARGET_DIR" 2>&1 | tee -a build.log; then
+          echo "✅ Copy to $TARGET_DIR succeeded." | tee -a build.log
+        else
+          echo "❌ Copy FAILED." | tee -a build.log
+          exit 1
+        fi
+
+        echo "=== Listing imported files ===" | tee -a build.log
+        find "$TARGET_DIR" -type f -exec ls -lh {} \; 2>&1 | tee -a build.log
+
+        echo "=== Applying permissions ===" | tee -a build.log
+        chmod -R u+rwX,go+rX "$TARGET_DIR" 2>&1 | tee -a build.log
+        find "$TARGET_DIR" -type f -name "*.sh" -exec chmod +x {} \; 2>&1 | tee -a build.log
+        find "$TARGET_DIR" -type f -name "Makefile" -exec chmod 644 {} \; 2>&1 | tee -a build.log
+
+        echo "=== Verifying Makefile presence ===" | tee -a build.log
+        if [ -f "$TARGET_DIR/Makefile" ]; then
+          echo "✅ Makefile found at $TARGET_DIR/Makefile" | tee -a build.log
+          echo "--- Makefile header (first 20 lines) ---" | tee -a build.log
+          head -n 20 "$TARGET_DIR/Makefile" | tee -a build.log
+        else
+          echo "❌ ERROR: Makefile NOT found in $TARGET_DIR" | tee -a build.log
+          exit 1
+        fi
+
+        echo "✅ cfw-leds package import completed." | tee -a build.log
 
     - name: Copy .config and verify active options
       run: |
