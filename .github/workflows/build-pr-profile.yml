@@ -98,7 +98,7 @@ jobs:
       run: |
         echo "=== Importing cfw-leds package ===" | tee -a build.log
         CFW_REPO="https://github.com/enanprinter/cfw-leds.git"
-        TARGET_DIR="openwrt/package/utils/cfw-leds"
+        TARGET_DIR="openwrt/package/utils"
         TMP_DIR="/tmp/cfw-leds-src"
 
         echo "Repo: $CFW_REPO" | tee -a build.log
