@@ -124,7 +124,7 @@ def patch_generic_mk():
     # إزالة المسافة البادئة قبل $(Device/uimage-lzma-loader) - يجب أن يكون السطر بدون أي مسافات
     #patch = '\ndefine Device/comfast_cf-wa350\n$(Device/uimage-lzma-loader)\n  SOC := qca9563\n  DEVICE_VENDOR := COMFAST\n  DEVICE_MODEL := CF-WA350\n  DEVICE_PACKAGES := kmod-ath10k-ct-smallbuffers \\\n    ath10k-firmware-qca9888-ct -uboot-envtools\n  IMAGE_SIZE := 16000k\n  SUPPORTED_DEVICES += comfast,cf-wa350\nendef\nTARGET_DEVICES += comfast_cf-wa350\n'
     #patch = '\ndefine Device/comfast_cf-wa350\nSOC := qca9563\n  DEVICE_VENDOR := COMFAST\n  DEVICE_MODEL := CF-WA350\n  DEVICE_PACKAGES := kmod-ath10k-ct \\\n    ath10k-firmware-qca9888-ct -uboot-envtools\n  IMAGE_SIZE := 16000k\n  SUPPORTED_DEVICES += comfast,cf-wa350\nendef\nTARGET_DEVICES += comfast_cf-wa350\n'
-    patch = '\ndefine Device/comfast_cf-wa350\nSOC := qca9563\n  DEVICE_VENDOR := COMFAST\n  DEVICE_MODEL := CF-WA350\n  DEVICE_PACKAGES := kmod-ath10k-ct ath10k-firmware-qca9888-ct ethtool\\\n   kmod-dsa-qca8k kmod-phy-qca83xx cfw-leds -uboot-envtools\n  IMAGE_SIZE := 16000k\nendef\nTARGET_DEVICES += comfast_cf-wa350\n'
+    patch = '\ndefine Device/comfast_cf-wa350\nSOC := qca9563\n  DEVICE_VENDOR := COMFAST\n  DEVICE_MODEL := CF-WA350\n  DEVICE_PACKAGES := kmod-ath10k-ct ath10k-firmware-qca9888-ct ethtool\\\n   kmod-dsa-qca8k kmod-phy-qca83xx cfw-leds -swconfig -uboot-envtools\n  IMAGE_SIZE := 16000k\nendef\nTARGET_DEVICES += comfast_cf-wa350\n'
    
     if "comfast_cf-wa350" in content:
         print(">>> generic.mk already patched")
