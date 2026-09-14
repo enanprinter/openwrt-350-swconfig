@@ -215,8 +215,8 @@ telco,t1)
 	ucidef_set_led_netdev "wan" "WAN" "blue:wan" "eth1"
 	;;
 comfast,cf-wa350)
-	ucidef_set_led_netdev "wan" "WAN" "red:wan"
-	ucidef_set_led_netdev "lan" "LAN" "green:lan"
+	ucidef_set_led_netdev "wan" "WAN" "red:wan" "wan"
+	ucidef_set_led_netdev "lan" "LAN" "green:lan" "lan"
 	ucidef_set_led_wlan "wlan5g" "WLAN5G" "blue:wlan-5ghz" "phy0tpt"
 	;;
 comfast,cf-wr752ac-v1|\
