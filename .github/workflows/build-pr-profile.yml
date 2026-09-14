@@ -342,7 +342,7 @@ jobs:
         echo "=== Building OpenWrt ===" | tee -a build.log
         echo "Build started at: $(date)" | tee -a build.log
         cd openwrt
-        make -j1 V=s 2>&1 | tee -a ../build.log
+        make -j2 V=s 2>&1 | tee -a ../build.log
         echo "Build finished at: $(date)" | tee -a build.log
       timeout-minutes: 360
 
