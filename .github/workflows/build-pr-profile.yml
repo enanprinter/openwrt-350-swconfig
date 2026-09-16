@@ -1,4 +1,4 @@
-name: COMFAST CF-WA350 (with leds theme packages)
+name: Build OpenWrt for COMFAST CF-WA350 (with config diff)
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ env:
 
 jobs:
   build:
-#    runs-on: ubuntu-22.04
+    runs-on: ubuntu-22.04
     permissions:
       contents: write
 
@@ -94,149 +94,71 @@ jobs:
           echo "No 'files' directory found." | tee -a build.log
         fi
 
-    - name: Import custom packages (cfw-leds + luci-theme-enan-dashboard)
+    - name: Import cfw-leds package into openwrt/package/utils/
       run: |
-        echo "=== Importing custom packages ===" | tee -a build.log
+        echo "=== Importing cfw-leds package ===" | tee -a build.log
+        CFW_REPO="https://github.com/enanprinter/cfw-leds.git"
+        TARGET_PARENT="openwrt/package/utils"
+        TARGET_DIR="$TARGET_PARENT/cfw-leds"
+        TMP_DIR="/tmp/cfw-leds-src"
 
-        # ============================================================
-        # إعدادات المستودع المصدر
-        # ============================================================
-        PKG_REPO="https://github.com/enanprinter/cfw-leds.git"
-        TMP_DIR="/tmp/custom-pkgs-src"
+        echo "Repo: $CFW_REPO" | tee -a build.log
+        echo "Target parent: $TARGET_PARENT" | tee -a build.log
+        echo "Expected final path: $TARGET_DIR" | tee -a build.log
 
-        # ============================================================
-        # مفاتيح التفعيل/التعطيل
-        # ضع false لتعطيل استيراد الحزمة، أو true لتفعيلها
-        # ============================================================
-        IMPORT_CFW_LEDS=true
-        IMPORT_LUCI_THEME=true
-
-        echo "Repo URL     : $PKG_REPO" | tee -a build.log
-        echo "Import cfw-leds              : $IMPORT_CFW_LEDS" | tee -a build.log
-        echo "Import luci-theme-enan-dashboard : $IMPORT_LUCI_THEME" | tee -a build.log
-
-        # ============================================================
-        # 1) استنساخ المستودع مرة واحدة فقط (يحتوي على كل الحزم)
-        # ============================================================
         rm -rf "$TMP_DIR"
-        if git clone --depth 1 "$PKG_REPO" "$TMP_DIR" 2>&1 | tee -a build.log; then
-          echo "✅ Clone succeeded: $PKG_REPO" | tee -a build.log
+        if git clone --depth 1 "$CFW_REPO" "$TMP_DIR" 2>&1 | tee -a build.log; then
+          echo "✅ Clone succeeded." | tee -a build.log
         else
-          echo "❌ Clone FAILED: $PKG_REPO" | tee -a build.log
+          echo "❌ Clone FAILED." | tee -a build.log
           exit 1
         fi
+
         rm -rf "$TMP_DIR/.git"
 
-        echo "--- Repository root contents ---" | tee -a build.log
-        ls -la "$TMP_DIR" | tee -a build.log
-
-        # ============================================================
-        # 2) الحزمة الأولى: cfw-leds
-        #    المصدر : $TMP_DIR/cfw-leds
-        #    الهدف  : openwrt/package/utils/cfw-leds
-        # ============================================================
-        if [ "$IMPORT_CFW_LEDS" = "true" ]; then
-          echo "" | tee -a build.log
-          echo "=== [1/2] Importing cfw-leds ===" | tee -a build.log
-
-          SRC="$TMP_DIR/cfw-leds"
-          DEST_PARENT="openwrt/package/utils"
-          DEST="$DEST_PARENT/cfw-leds"
-
-          echo "Source      : $SRC" | tee -a build.log
-          echo "Destination : $DEST" | tee -a build.log
-
-          if [ ! -d "$SRC" ]; then
-            echo "❌ ERROR: source folder '$SRC' not found in repo" | tee -a build.log
-            exit 1
-          fi
-
-          mkdir -p "$DEST_PARENT"
-          rm -rf "$DEST"
-          if cp -rv "$SRC" "$DEST_PARENT"/ 2>&1 | tee -a build.log; then
-            echo "✅ Copy succeeded." | tee -a build.log
-          else
-            echo "❌ Copy FAILED." | tee -a build.log
-            exit 1
-          fi
-
-          echo "--- Files in $DEST ---" | tee -a build.log
-          find "$DEST" -type f -exec ls -lh {} \; 2>&1 | tee -a build.log
-
-          echo "--- Applying permissions ---" | tee -a build.log
-          chmod -R u+rwX,go+rX "$DEST"
-          find "$DEST" -type f -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
-          find "$DEST/files" -type f -exec chmod +x {} \; 2>/dev/null || true
-          find "$DEST" -type f -name "Makefile" -exec chmod 644 {} \; 2>/dev/null || true
-
-          if [ -f "$DEST/Makefile" ]; then
-            echo "✅ Makefile found at $DEST/Makefile" | tee -a build.log
-            echo "--- Makefile header (first 10 lines) ---" | tee -a build.log
-            head -n 10 "$DEST/Makefile" | tee -a build.log
-          else
-            echo "❌ ERROR: Makefile NOT found in $DEST" | tee -a build.log
-            exit 1
-          fi
-
-          echo "✅ cfw-leds import completed." | tee -a build.log
-        else
-          echo "⏭️  Skipping cfw-leds (IMPORT_CFW_LEDS=$IMPORT_CFW_LEDS)" | tee -a build.log
+        # المستودع يحتوي على مجلد فرعي باسم cfw-leds، ننسخ المجلد نفسه (وليس محتوياته)
+        SRC_DIR="$TMP_DIR/cfw-leds"
+        if [ ! -d "$SRC_DIR" ]; then
+          echo "❌ ERROR: Expected subfolder '$SRC_DIR' not found." | tee -a build.log
+          echo "--- Listing TMP_DIR contents ---" | tee -a build.log
+          ls -la "$TMP_DIR" | tee -a build.log
+          exit 1
         fi
 
-        # ============================================================
-        # 3) الحزمة الثانية: luci-theme-enan-dashboard
-        #    المصدر : $TMP_DIR/luci-theme-enan-dashboard
-        #    الهدف  : openwrt/package/luci-theme-enan-dashboard
-        # ============================================================
-        if [ "$IMPORT_LUCI_THEME" = "true" ]; then
-          echo "" | tee -a build.log
-          echo "=== [2/2] Importing luci-theme-enan-dashboard ===" | tee -a build.log
+        # التأكد من وجود المجلد الأب
+        mkdir -p "$TARGET_PARENT"
 
-          SRC="$TMP_DIR/luci-theme-enan-dashboard"
-          DEST_PARENT="openwrt/package"
-          DEST="$DEST_PARENT/luci-theme-enan-dashboard"
+        # إزالة أي نسخة سابقة لتجنب التعارض
+        rm -rf "$TARGET_DIR"
 
-          echo "Source      : $SRC" | tee -a build.log
-          echo "Destination : $DEST" | tee -a build.log
-
-          if [ ! -d "$SRC" ]; then
-            echo "❌ ERROR: source folder '$SRC' not found in repo" | tee -a build.log
-            exit 1
-          fi
-
-          mkdir -p "$DEST_PARENT"
-          rm -rf "$DEST"
-          if cp -rv "$SRC" "$DEST_PARENT"/ 2>&1 | tee -a build.log; then
-            echo "✅ Copy succeeded." | tee -a build.log
-          else
-            echo "❌ Copy FAILED." | tee -a build.log
-            exit 1
-          fi
-
-          echo "--- Files in $DEST ---" | tee -a build.log
-          find "$DEST" -type f -exec ls -lh {} \; 2>&1 | tee -a build.log
-
-          echo "--- Applying permissions ---" | tee -a build.log
-          chmod -R u+rwX,go+rX "$DEST"
-          find "$DEST" -type f -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
-          find "$DEST" -type f -name "Makefile" -exec chmod 644 {} \; 2>/dev/null || true
-
-          if [ -f "$DEST/Makefile" ]; then
-            echo "✅ Makefile found at $DEST/Makefile" | tee -a build.log
-            echo "--- Makefile header (first 10 lines) ---" | tee -a build.log
-            head -n 10 "$DEST/Makefile" | tee -a build.log
-          else
-            echo "❌ ERROR: Makefile NOT found in $DEST" | tee -a build.log
-            exit 1
-          fi
-
-          echo "✅ luci-theme-enan-dashboard import completed." | tee -a build.log
+        # نسخ المجلد cfw-leds بكامله إلى openwrt/package/utils/
+        if cp -rv "$SRC_DIR" "$TARGET_PARENT"/ 2>&1 | tee -a build.log; then
+          echo "✅ Copy to $TARGET_PARENT succeeded." | tee -a build.log
         else
-          echo "⏭️  Skipping luci-theme-enan-dashboard (IMPORT_LUCI_THEME=$IMPORT_LUCI_THEME)" | tee -a build.log
+          echo "❌ Copy FAILED." | tee -a build.log
+          exit 1
         fi
 
-        echo "" | tee -a build.log
-        echo "✅ Custom packages import step completed." | tee -a build.log
+        echo "=== Listing imported files ===" | tee -a build.log
+        find "$TARGET_DIR" -type f -exec ls -lh {} \; 2>&1 | tee -a build.log
+
+        echo "=== Applying permissions ===" | tee -a build.log
+        chmod -R u+rwX,go+rX "$TARGET_DIR" 2>&1 | tee -a build.log
+        find "$TARGET_DIR" -type f -name "*.sh" -exec chmod +x {} \; 2>&1 | tee -a build.log
+        find "$TARGET_DIR" -type f -name "Makefile" -exec chmod 644 {} \; 2>&1 | tee -a build.log
+        find "$TARGET_DIR/files" -type f -exec chmod +x {} \; 2>/dev/null || true
+
+        echo "=== Verifying Makefile presence ===" | tee -a build.log
+        if [ -f "$TARGET_DIR/Makefile" ]; then
+          echo "✅ Makefile found at $TARGET_DIR/Makefile" | tee -a build.log
+          echo "--- Makefile header (first 20 lines) ---" | tee -a build.log
+          head -n 20 "$TARGET_DIR/Makefile" | tee -a build.log
+        else
+          echo "❌ ERROR: Makefile NOT found in $TARGET_DIR" | tee -a build.log
+          exit 1
+        fi
+
+        echo "✅ cfw-leds package import completed." | tee -a build.log
 
     - name: Copy .config and verify active options
       run: |
@@ -342,7 +264,7 @@ jobs:
         echo "=== Building OpenWrt ===" | tee -a build.log
         echo "Build started at: $(date)" | tee -a build.log
         cd openwrt
-        make -j2 V=s 2>&1 | tee -a ../build.log
+        make -j1 V=s 2>&1 | tee -a ../build.log
         echo "Build finished at: $(date)" | tee -a build.log
       timeout-minutes: 360
 
