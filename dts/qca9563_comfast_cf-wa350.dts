@@ -205,6 +205,14 @@
 				};
 			};
 
+			/*
+			 * phy-mode is deliberately omitted on the user ports:
+			 * of_get_phy_mode() falls back to PHY_INTERFACE_MODE_NA
+			 * when the property is absent, and qca8k then selects
+			 * the external MDIO bus because phy-handle is present
+			 * (qca8k_setup_mdio_bus()). Same layout as the pending
+			 * RB2011 conversion, openwrt/openwrt#24999.
+			 */
 			ethernet-port@1 {
 				reg = <1>;
 				label = "wan";
