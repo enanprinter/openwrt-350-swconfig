@@ -2,17 +2,26 @@ name: Build OpenWrt for COMFAST CF-WA350 (with config diff)
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
+    inputs:
+      include_files:
+        description: 'Inject custom files from "files" directory'
+        required: false
+        default: false
+        type: boolean
+      import_cfw_leds:
+        description: 'Import cfw-leds package into openwrt/package/utils/'
+        required: false
+        default: true
+        type: boolean
 
 env:
   REPO_URL: https://git.openwrt.org/openwrt/openwrt.git
-  # تم إزالة تحديد الفرع ليتم بناء سناب شوت (الفرع الافتراضي master)
+  REPO_BRANCH: v24.10.8
   TZ: Asia/Riyadh
 
 jobs:
   build:
-#    runs-on: ubuntu-22.04
+    runs-on: ubuntu-22.04
     permissions:
       contents: write
 
@@ -69,7 +78,7 @@ jobs:
     - name: Clone OpenWrt source (shallow)
       run: |
         echo "=== Cloning OpenWrt source ===" | tee -a build.log
-        git clone --depth 1 $REPO_URL openwrt 2>&1 | tee -a build.log
+        git clone --depth 1 --branch $REPO_BRANCH $REPO_URL openwrt 2>&1 | tee -a build.log
         rm -rf openwrt/.git 2>&1 | tee -a build.log
 
     - name: Update & Install feeds
@@ -85,6 +94,7 @@ jobs:
         python3 apply_patches.py 2>&1 | tee -a build.log
 
     - name: Inject custom files
+      if: ${{ github.event.inputs.include_files == 'true' }}
       run: |
         echo "=== Injecting custom files ===" | tee -a build.log
         if [ -d files ]; then
@@ -95,9 +105,10 @@ jobs:
         fi
 
     - name: Import cfw-leds package into openwrt/package/utils/
+      if: ${{ github.event.inputs.import_cfw_leds != 'false' }}
       run: |
         echo "=== Importing cfw-leds package ===" | tee -a build.log
-        CFW_REPO="https://github.com/enanprinter/cfw-leds.git"
+        CFW_REPO="https://github.com/haddad2inc/cfw-leds.git"
         TARGET_PARENT="openwrt/package/utils"
         TARGET_DIR="$TARGET_PARENT/cfw-leds"
         TMP_DIR="/tmp/cfw-leds-src"
@@ -239,7 +250,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: config-snapshots
+        name: config-snapshots-24.10
         path: |
           openwrt/config-before.txt
           openwrt/config-after.txt
@@ -259,12 +270,12 @@ jobs:
         cd openwrt
         rm -rf build_dir staging_dir 2>&1 | tee -a ../build.log
 
-    - name: Build OpenWrt (single job to reduce disk usage)
+    - name: Build OpenWrt (using all available cores)
       run: |
         echo "=== Building OpenWrt ===" | tee -a build.log
         echo "Build started at: $(date)" | tee -a build.log
         cd openwrt
-        make -j1 V=s 2>&1 | tee -a ../build.log
+        make -j$(nproc) V=s 2>&1 | tee -a ../build.log
         echo "Build finished at: $(date)" | tee -a build.log
       timeout-minutes: 360
 
@@ -312,7 +323,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: full-build-log
+        name: full-build-log-24.10
         path: build.log
         if-no-files-found: error
 
@@ -320,7 +331,10 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: openwrt-firmware-full
+        name: cf-wa350-24.10-${{ github.sha }}
         path: |
-          openwrt/bin/targets/ath79/generic/
+          openwrt/bin/targets/ath79/generic/openwrt-*comfast_cf-wa350*
+          openwrt/bin/targets/ath79/generic/sha256sums
+          openwrt/bin/targets/ath79/generic/BUILD-INFO.txt
+          openwrt/bin/targets/ath79/generic/config.buildinfo
         if-no-files-found: warn
