@@ -82,35 +82,82 @@ jobs:
         echo "=== Pinning kernel version to 6.18.44 ===" | tee -a build.log
         cd openwrt
 
-        # 1. تعديل kernel-version.mk لتثبيت الإصدار الفرعي .44
-        echo "=== Before: LINUX_VERSION-6.18 ===" | tee -a ../build.log
-        grep "LINUX_VERSION-6.18" include/kernel-version.mk | tee -a ../build.log
+        GOOD_COMMIT="b4c5ac2908"
 
-        sed -i 's/^LINUX_VERSION-6\.18 = .*/LINUX_VERSION-6.18 = .44/' include/kernel-version.mk
+        echo "=== Current LINUX_VERSION entries in kernel-version.mk ===" | tee -a ../build.log
+        grep -n "LINUX_VERSION" include/kernel-version.mk 2>&1 | tee -a ../build.log || echo "(none found)" | tee -a ../build.log
 
-        echo "=== After: LINUX_VERSION-6.18 ===" | tee -a ../build.log
-        grep "LINUX_VERSION-6.18" include/kernel-version.mk | tee -a ../build.log
-
-        # 2. تفعيل النواة الاختبارية 6.18 في target/linux/ath79/Makefile
-        echo "=== Before: KERNEL_TESTING_PATCHVER in ath79 Makefile ===" | tee -a ../build.log
-        grep "KERNEL_TESTING_PATCHVER" target/linux/ath79/Makefile | tee -a ../build.log || echo "(not set)" | tee -a ../build.log
-
-        # إزالة أي سطر سابق وإضافة السطر الجديد
-        sed -i '/^KERNEL_TESTING_PATCHVER/d' target/linux/ath79/Makefile
-        sed -i '/^KERNEL_PATCHVER/a KERNEL_TESTING_PATCHVER:=6.18' target/linux/ath79/Makefile
-
-        echo "=== After: KERNEL_TESTING_PATCHVER in ath79 Makefile ===" | tee -a ../build.log
-        grep "KERNEL_TESTING_PATCHVER" target/linux/ath79/Makefile | tee -a ../build.log
-
-        # 3. التحقق من أن الإصدار الكامل أصبح 6.18.44
-        echo "=== Verifying full kernel version ===" | tee -a ../build.log
-        FULL_VER=$(grep -E "LINUX_VERSION-6\.18" include/kernel-version.mk | awk -F'= ' '{print $2}')
-        echo "Full kernel version will be: 6.18${FULL_VER}" | tee -a ../build.log
-
-        if [ "$FULL_VER" = ".44" ]; then
-          echo "✅ Kernel version successfully pinned to 6.18.44" | tee -a ../build.log
+        # محاولة أولى: البحث محلياً
+        if grep -q "^LINUX_VERSION-6\.18" include/kernel-version.mk 2>/dev/null; then
+          echo "✅ Found LINUX_VERSION-6.18 line in current master, modifying it..." | tee -a ../build.log
+          sed -i 's/^LINUX_VERSION-6\.18.*/LINUX_VERSION-6.18 = .44/' include/kernel-version.mk
         else
-          echo "❌ ERROR: Failed to pin kernel version! Expected .44 but got ${FULL_VER}" | tee -a ../build.log
+          echo "⚠️ LINUX_VERSION-6.18 not found in current master." | tee -a ../build.log
+          echo "   Fetching kernel-version.mk from known-good commit ${GOOD_COMMIT}..." | tee -a ../build.log
+
+          FETCHED=false
+
+          # المصدر الأول: cgit الرسمي لـ OpenWrt
+          URL1="https://git.openwrt.org/?p=openwrt/openwrt.git;a=blob_plain;f=include/kernel-version.mk;hb=${GOOD_COMMIT}"
+          if curl -fsSL "$URL1" -o /tmp/kernel-version.mk 2>/dev/null; then
+            if grep -q "LINUX_VERSION-6\.18" /tmp/kernel-version.mk; then
+              FETCHED=true
+              echo "✅ Fetched from git.openwrt.org cgit" | tee -a ../build.log
+            else
+              echo "⚠️ Fetched file from cgit does not contain 6.18 entry" | tee -a ../build.log
+            fi
+          fi
+
+          # المصدر الثاني: GitHub mirror
+          if [ "$FETCHED" = false ]; then
+            URL2="https://raw.githubusercontent.com/openwrt/openwrt/${GOOD_COMMIT}/include/kernel-version.mk"
+            if curl -fsSL "$URL2" -o /tmp/kernel-version.mk 2>/dev/null; then
+              if grep -q "LINUX_VERSION-6\.18" /tmp/kernel-version.mk; then
+                FETCHED=true
+                echo "✅ Fetched from GitHub mirror" | tee -a ../build.log
+              else
+                echo "⚠️ Fetched file from GitHub does not contain 6.18 entry" | tee -a ../build.log
+              fi
+            fi
+          fi
+
+          if [ "$FETCHED" = true ]; then
+            echo "=== Fetched 6.18 section ===" | tee -a ../build.log
+            grep -A2 "6\.18" /tmp/kernel-version.mk | head -20 | tee -a ../build.log || true
+            cp /tmp/kernel-version.mk include/kernel-version.mk
+            echo "✅ Replaced kernel-version.mk with version from ${GOOD_COMMIT}" | tee -a ../build.log
+          else
+            echo "⚠️ Could not fetch from remote, will try local modification anyway" | tee -a ../build.log
+          fi
+        fi
+
+        # فرض السطر مجدداً للتأكد من أن اللاحقة هي .44
+        if grep -q "^LINUX_VERSION-6\.18" include/kernel-version.mk 2>/dev/null; then
+          sed -i 's/^LINUX_VERSION-6\.18.*/LINUX_VERSION-6.18 = .44/' include/kernel-version.mk
+          echo "=== Final LINUX_VERSION-6.18 line ===" | tee -a ../build.log
+          grep "^LINUX_VERSION-6\.18" include/kernel-version.mk | tee -a ../build.log
+        else
+          echo "❌ ERROR: Still no LINUX_VERSION-6.18 entry after all attempts." | tee -a ../build.log
+          echo "=== Full include/kernel-version.mk ===" | tee -a ../build.log
+          cat include/kernel-version.mk | tee -a ../build.log
+          exit 1
+        fi
+
+        # ضبط KERNEL_TESTING_PATCHVER في ath79
+        echo "=== Setting KERNEL_TESTING_PATCHVER:=6.18 in ath79 Makefile ===" | tee -a ../build.log
+        if grep -q "^KERNEL_TESTING_PATCHVER" target/linux/ath79/Makefile; then
+          sed -i 's/^KERNEL_TESTING_PATCHVER.*/KERNEL_TESTING_PATCHVER:=6.18/' target/linux/ath79/Makefile
+        else
+          sed -i '/^KERNEL_PATCHVER/a KERNEL_TESTING_PATCHVER:=6.18' target/linux/ath79/Makefile
+        fi
+        grep -E "^KERNEL_(TESTING_)?PATCHVER" target/linux/ath79/Makefile | tee -a ../build.log
+
+        # التحقق النهائي
+        echo "=== Final verification ===" | tee -a ../build.log
+        if grep -qE "^LINUX_VERSION-6\.18 = \.44$" include/kernel-version.mk; then
+          echo "✅ Kernel successfully pinned to 6.18.44" | tee -a ../build.log
+        else
+          echo "❌ ERROR: Kernel NOT pinned to 6.18.44" | tee -a ../build.log
           exit 1
         fi
 
@@ -263,13 +310,15 @@ jobs:
           fi
         done
 
-        # التحقق من أن خيار النواة الاختبارية مفعّل
         echo "=== Checking CONFIG_TESTING_KERNEL ===" | tee -a ../build.log
         if grep -q "CONFIG_TESTING_KERNEL=y" .config; then
           echo "✅ CONFIG_TESTING_KERNEL is enabled." | tee -a ../build.log
         else
-          echo "⚠️ CONFIG_TESTING_KERNEL is NOT enabled. Kernel version may not be pinned correctly." | tee -a ../build.log
+          echo "⚠️ CONFIG_TESTING_KERNEL is NOT enabled." | tee -a ../build.log
         fi
+
+        echo "=== Kernel version from .config ===" | tee -a ../build.log
+        grep -E "^CONFIG_KERNEL_VERSION|^CONFIG_LINUX_VERSION|^CONFIG_KERNEL_PATCHVER" .config | tee -a ../build.log || true
 
         echo "✅ .config verification completed." | tee -a ../build.log
 
