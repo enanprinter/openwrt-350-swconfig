@@ -1,4 +1,4 @@
-name: Build COMFAST CF-WA350 (kernel-6.18.44)
+name: Build OpenWrt for COMFAST CF-WA350
 
 on:
   workflow_dispatch:
@@ -76,6 +76,43 @@ jobs:
         echo "=== Cloning OpenWrt source ===" | tee -a build.log
         git clone --depth 1 $REPO_URL openwrt 2>&1 | tee -a build.log
         rm -rf openwrt/.git 2>&1 | tee -a build.log
+
+    - name: Pin kernel version to 6.18.44
+      run: |
+        echo "=== Pinning kernel version to 6.18.44 ===" | tee -a build.log
+        cd openwrt
+
+        # 1. تعديل kernel-version.mk لتثبيت الإصدار الفرعي .44
+        echo "=== Before: LINUX_VERSION-6.18 ===" | tee -a ../build.log
+        grep "LINUX_VERSION-6.18" include/kernel-version.mk | tee -a ../build.log
+
+        sed -i 's/^LINUX_VERSION-6\.18 = .*/LINUX_VERSION-6.18 = .44/' include/kernel-version.mk
+
+        echo "=== After: LINUX_VERSION-6.18 ===" | tee -a ../build.log
+        grep "LINUX_VERSION-6.18" include/kernel-version.mk | tee -a ../build.log
+
+        # 2. تفعيل النواة الاختبارية 6.18 في target/linux/ath79/Makefile
+        echo "=== Before: KERNEL_TESTING_PATCHVER in ath79 Makefile ===" | tee -a ../build.log
+        grep "KERNEL_TESTING_PATCHVER" target/linux/ath79/Makefile | tee -a ../build.log || echo "(not set)" | tee -a ../build.log
+
+        # إزالة أي سطر سابق وإضافة السطر الجديد
+        sed -i '/^KERNEL_TESTING_PATCHVER/d' target/linux/ath79/Makefile
+        sed -i '/^KERNEL_PATCHVER/a KERNEL_TESTING_PATCHVER:=6.18' target/linux/ath79/Makefile
+
+        echo "=== After: KERNEL_TESTING_PATCHVER in ath79 Makefile ===" | tee -a ../build.log
+        grep "KERNEL_TESTING_PATCHVER" target/linux/ath79/Makefile | tee -a ../build.log
+
+        # 3. التحقق من أن الإصدار الكامل أصبح 6.18.44
+        echo "=== Verifying full kernel version ===" | tee -a ../build.log
+        FULL_VER=$(grep -E "LINUX_VERSION-6\.18" include/kernel-version.mk | awk -F'= ' '{print $2}')
+        echo "Full kernel version will be: 6.18${FULL_VER}" | tee -a ../build.log
+
+        if [ "$FULL_VER" = ".44" ]; then
+          echo "✅ Kernel version successfully pinned to 6.18.44" | tee -a ../build.log
+        else
+          echo "❌ ERROR: Failed to pin kernel version! Expected .44 but got ${FULL_VER}" | tee -a ../build.log
+          exit 1
+        fi
 
     - name: Update & Install feeds
       run: |
@@ -161,15 +198,6 @@ jobs:
 
         echo "✅ cfw-leds package import completed." | tee -a build.log
 
-    - name: Set custom kernel version (KERNEL_TESTING_PATCHVER to 6.18)
-      run: |
-        echo "=== Setting KERNEL_TESTING_PATCHVER to 6.18 for ath79 ===" | tee -a build.log
-        cd openwrt
-        sed -i 's/^KERNEL_TESTING_PATCHVER:=.*/KERNEL_TESTING_PATCHVER:=6.18/' target/linux/ath79/Makefile
-        grep "KERNEL_TESTING_PATCHVER" target/linux/ath79/Makefile | tee -a ../build.log
-        echo "=== Current LINUX_VERSION for 6.18 (from kernel-version.mk) ===" | tee -a ../build.log
-        grep -E "LINUX_VERSION-6\.18" include/kernel-version.mk | tee -a ../build.log || true
-
     - name: Copy .config and verify active options
       run: |
         echo "=== Copying .config from repository root to openwrt/ ===" | tee -a build.log
@@ -179,6 +207,7 @@ jobs:
 
         cp .config config-before.txt
 
+        # تفعيل النواة الاختبارية لضمان استخدام KERNEL_TESTING_PATCHVER
         echo "CONFIG_TESTING_KERNEL=y" >> .config
         echo "=== Added CONFIG_TESTING_KERNEL=y to .config ===" | tee -a ../build.log
 
@@ -234,6 +263,14 @@ jobs:
           fi
         done
 
+        # التحقق من أن خيار النواة الاختبارية مفعّل
+        echo "=== Checking CONFIG_TESTING_KERNEL ===" | tee -a ../build.log
+        if grep -q "CONFIG_TESTING_KERNEL=y" .config; then
+          echo "✅ CONFIG_TESTING_KERNEL is enabled." | tee -a ../build.log
+        else
+          echo "⚠️ CONFIG_TESTING_KERNEL is NOT enabled. Kernel version may not be pinned correctly." | tee -a ../build.log
+        fi
+
         echo "✅ .config verification completed." | tee -a ../build.log
 
     - name: Upload config snapshots (before/after)
@@ -265,7 +302,7 @@ jobs:
         echo "=== Building OpenWrt ===" | tee -a build.log
         echo "Build started at: $(date)" | tee -a build.log
         cd openwrt
-        make -j"$(nproc)"  V=s 2>&1 | tee -a ../build.log
+        make -j2 V=s 2>&1 | tee -a ../build.log
         echo "Build finished at: $(date)" | tee -a build.log
       timeout-minutes: 360
 
@@ -285,6 +322,7 @@ jobs:
         if [ -f staging_dir/target-mips_24kc_musl/linux-ath79_generic/linux-6.18.44/.config ]; then
           echo "✅ Kernel source directory found: linux-6.18.44" | tee -a ../build.log
         else
+          echo "⚠️ Expected directory linux-6.18.44 not found. Listing available kernel directories:" | tee -a ../build.log
           ls -d staging_dir/target-mips_24kc_musl/linux-ath79_generic/linux-* 2>/dev/null | tee -a ../build.log || true
         fi
 
