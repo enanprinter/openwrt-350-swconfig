@@ -1,4 +1,4 @@
-name: Build OpenWrt for COMFAST CF-WA350
+name: Build OpenWrt for COMFAST CF-WA350 (24.10.8)
 
 on:
   workflow_dispatch:
@@ -8,11 +8,10 @@ on:
         required: false
         default: false
         type: boolean
-  push:
-    branches: [ main ]
 
 env:
   REPO_URL: https://git.openwrt.org/openwrt/openwrt.git
+  REPO_BRANCH: openwrt-24.10.8
   TZ: Asia/Riyadh
 
 jobs:
@@ -71,95 +70,11 @@ jobs:
         sudo apt clean 2>&1 | tee -a build.log
         sudo rm -rf /var/lib/apt/lists/* 2>&1 | tee -a build.log
 
-    - name: Clone OpenWrt source (shallow)
+    - name: Clone OpenWrt source (specific branch)
       run: |
-        echo "=== Cloning OpenWrt source ===" | tee -a build.log
-        git clone --depth 1 $REPO_URL openwrt 2>&1 | tee -a build.log
+        echo "=== Cloning OpenWrt source (branch: $REPO_BRANCH) ===" | tee -a build.log
+        git clone --depth 1 --branch $REPO_BRANCH $REPO_URL openwrt 2>&1 | tee -a build.log
         rm -rf openwrt/.git 2>&1 | tee -a build.log
-
-    - name: Pin kernel version to 6.18.44
-      run: |
-        echo "=== Pinning kernel version to 6.18.44 ===" | tee -a build.log
-        cd openwrt
-
-        GOOD_COMMIT="b4c5ac2908"
-
-        echo "=== Current LINUX_VERSION entries in kernel-version.mk ===" | tee -a ../build.log
-        grep -n "LINUX_VERSION" include/kernel-version.mk 2>&1 | tee -a ../build.log || echo "(none found)" | tee -a ../build.log
-
-        # محاولة أولى: البحث محلياً
-        if grep -q "^LINUX_VERSION-6\.18" include/kernel-version.mk 2>/dev/null; then
-          echo "✅ Found LINUX_VERSION-6.18 line in current master, modifying it..." | tee -a ../build.log
-          sed -i 's/^LINUX_VERSION-6\.18.*/LINUX_VERSION-6.18 = .44/' include/kernel-version.mk
-        else
-          echo "⚠️ LINUX_VERSION-6.18 not found in current master." | tee -a ../build.log
-          echo "   Fetching kernel-version.mk from known-good commit ${GOOD_COMMIT}..." | tee -a ../build.log
-
-          FETCHED=false
-
-          # المصدر الأول: cgit الرسمي لـ OpenWrt
-          URL1="https://git.openwrt.org/?p=openwrt/openwrt.git;a=blob_plain;f=include/kernel-version.mk;hb=${GOOD_COMMIT}"
-          if curl -fsSL "$URL1" -o /tmp/kernel-version.mk 2>/dev/null; then
-            if grep -q "LINUX_VERSION-6\.18" /tmp/kernel-version.mk; then
-              FETCHED=true
-              echo "✅ Fetched from git.openwrt.org cgit" | tee -a ../build.log
-            else
-              echo "⚠️ Fetched file from cgit does not contain 6.18 entry" | tee -a ../build.log
-            fi
-          fi
-
-          # المصدر الثاني: GitHub mirror
-          if [ "$FETCHED" = false ]; then
-            URL2="https://raw.githubusercontent.com/openwrt/openwrt/${GOOD_COMMIT}/include/kernel-version.mk"
-            if curl -fsSL "$URL2" -o /tmp/kernel-version.mk 2>/dev/null; then
-              if grep -q "LINUX_VERSION-6\.18" /tmp/kernel-version.mk; then
-                FETCHED=true
-                echo "✅ Fetched from GitHub mirror" | tee -a ../build.log
-              else
-                echo "⚠️ Fetched file from GitHub does not contain 6.18 entry" | tee -a ../build.log
-              fi
-            fi
-          fi
-
-          if [ "$FETCHED" = true ]; then
-            echo "=== Fetched 6.18 section ===" | tee -a ../build.log
-            grep -A2 "6\.18" /tmp/kernel-version.mk | head -20 | tee -a ../build.log || true
-            cp /tmp/kernel-version.mk include/kernel-version.mk
-            echo "✅ Replaced kernel-version.mk with version from ${GOOD_COMMIT}" | tee -a ../build.log
-          else
-            echo "⚠️ Could not fetch from remote, will try local modification anyway" | tee -a ../build.log
-          fi
-        fi
-
-        # فرض السطر مجدداً للتأكد من أن اللاحقة هي .44
-        if grep -q "^LINUX_VERSION-6\.18" include/kernel-version.mk 2>/dev/null; then
-          sed -i 's/^LINUX_VERSION-6\.18.*/LINUX_VERSION-6.18 = .44/' include/kernel-version.mk
-          echo "=== Final LINUX_VERSION-6.18 line ===" | tee -a ../build.log
-          grep "^LINUX_VERSION-6\.18" include/kernel-version.mk | tee -a ../build.log
-        else
-          echo "❌ ERROR: Still no LINUX_VERSION-6.18 entry after all attempts." | tee -a ../build.log
-          echo "=== Full include/kernel-version.mk ===" | tee -a ../build.log
-          cat include/kernel-version.mk | tee -a ../build.log
-          exit 1
-        fi
-
-        # ضبط KERNEL_TESTING_PATCHVER في ath79
-        echo "=== Setting KERNEL_TESTING_PATCHVER:=6.18 in ath79 Makefile ===" | tee -a ../build.log
-        if grep -q "^KERNEL_TESTING_PATCHVER" target/linux/ath79/Makefile; then
-          sed -i 's/^KERNEL_TESTING_PATCHVER.*/KERNEL_TESTING_PATCHVER:=6.18/' target/linux/ath79/Makefile
-        else
-          sed -i '/^KERNEL_PATCHVER/a KERNEL_TESTING_PATCHVER:=6.18' target/linux/ath79/Makefile
-        fi
-        grep -E "^KERNEL_(TESTING_)?PATCHVER" target/linux/ath79/Makefile | tee -a ../build.log
-
-        # التحقق النهائي
-        echo "=== Final verification ===" | tee -a ../build.log
-        if grep -qE "^LINUX_VERSION-6\.18 = \.44$" include/kernel-version.mk; then
-          echo "✅ Kernel successfully pinned to 6.18.44" | tee -a ../build.log
-        else
-          echo "❌ ERROR: Kernel NOT pinned to 6.18.44" | tee -a ../build.log
-          exit 1
-        fi
 
     - name: Update & Install feeds
       run: |
@@ -254,10 +169,6 @@ jobs:
 
         cp .config config-before.txt
 
-        # تفعيل النواة الاختبارية لضمان استخدام KERNEL_TESTING_PATCHVER
-        echo "CONFIG_TESTING_KERNEL=y" >> .config
-        echo "=== Added CONFIG_TESTING_KERNEL=y to .config ===" | tee -a ../build.log
-
         echo "=== Active options BEFORE defconfig (imported from repo) ===" | tee -a ../build.log
         echo "Count of enabled options (y/m):" | tee -a ../build.log
         grep -E '^CONFIG_.*=[ym]' .config | wc -l | tee -a ../build.log
@@ -310,23 +221,13 @@ jobs:
           fi
         done
 
-        echo "=== Checking CONFIG_TESTING_KERNEL ===" | tee -a ../build.log
-        if grep -q "CONFIG_TESTING_KERNEL=y" .config; then
-          echo "✅ CONFIG_TESTING_KERNEL is enabled." | tee -a ../build.log
-        else
-          echo "⚠️ CONFIG_TESTING_KERNEL is NOT enabled." | tee -a ../build.log
-        fi
-
-        echo "=== Kernel version from .config ===" | tee -a ../build.log
-        grep -E "^CONFIG_KERNEL_VERSION|^CONFIG_LINUX_VERSION|^CONFIG_KERNEL_PATCHVER" .config | tee -a ../build.log || true
-
         echo "✅ .config verification completed." | tee -a ../build.log
 
     - name: Upload config snapshots (before/after)
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: config-snapshots
+        name: config-snapshots-24.10
         path: |
           openwrt/config-before.txt
           openwrt/config-after.txt
@@ -346,34 +247,14 @@ jobs:
         cd openwrt
         rm -rf build_dir staging_dir 2>&1 | tee -a ../build.log
 
-    - name: Build OpenWrt (single job to reduce disk usage)
+    - name: Build OpenWrt (using all available cores)
       run: |
         echo "=== Building OpenWrt ===" | tee -a build.log
         echo "Build started at: $(date)" | tee -a build.log
         cd openwrt
-        make -j2 V=s 2>&1 | tee -a ../build.log
+        make -j$(nproc) V=s 2>&1 | tee -a ../build.log
         echo "Build finished at: $(date)" | tee -a build.log
       timeout-minutes: 360
-
-    - name: Verify actual kernel version in built image
-      run: |
-        echo "=== Verifying actual kernel version ===" | tee -a build.log
-        cd openwrt
-        echo "=== Kernel version from .config ===" | tee -a ../build.log
-        grep -E "^CONFIG_KERNEL_VERSION|^CONFIG_LINUX_VERSION|^CONFIG_KERNEL_PATCHVER" .config | tee -a ../build.log || true
-        echo "=== Kernel version from version file ===" | tee -a ../build.log
-        if [ -f bin/targets/ath79/generic/version.buildinfo ]; then
-          cat bin/targets/ath79/generic/version.buildinfo | tee -a ../build.log
-        fi
-        echo "=== Searching for kernel version in build artifacts ===" | tee -a ../build.log
-        find bin/targets/ath79/generic/ -name "*.manifest" -exec grep -i "kernel" {} \; 2>/dev/null | head -20 | tee -a ../build.log || true
-        echo "=== Kernel version from staging_dir (if available) ===" | tee -a ../build.log
-        if [ -f staging_dir/target-mips_24kc_musl/linux-ath79_generic/linux-6.18.44/.config ]; then
-          echo "✅ Kernel source directory found: linux-6.18.44" | tee -a ../build.log
-        else
-          echo "⚠️ Expected directory linux-6.18.44 not found. Listing available kernel directories:" | tee -a ../build.log
-          ls -d staging_dir/target-mips_24kc_musl/linux-ath79_generic/linux-* 2>/dev/null | tee -a ../build.log || true
-        fi
 
     - name: List all files in bin/targets/ath79/generic/
       run: |
@@ -419,7 +300,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: full-build-log
+        name: full-build-log-24.10
         path: build.log
         if-no-files-found: error
 
@@ -427,7 +308,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: cf-wa350-${{ github.sha }}
+        name: cf-wa350-24.10-${{ github.sha }}
         path: |
           openwrt/bin/targets/ath79/generic/openwrt-*comfast_cf-wa350*
           openwrt/bin/targets/ath79/generic/sha256sums
