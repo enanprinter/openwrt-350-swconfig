@@ -11,7 +11,8 @@ on:
 
 env:
   REPO_URL: https://git.openwrt.org/openwrt/openwrt.git
-  REPO_BRANCH: openwrt-24.10.8
+  # استخدام الـ tag v24.10.8 لتثبيت الإصدار بدقة
+  REPO_BRANCH: v24.10.8
   TZ: Asia/Riyadh
 
 jobs:
@@ -70,10 +71,23 @@ jobs:
         sudo apt clean 2>&1 | tee -a build.log
         sudo rm -rf /var/lib/apt/lists/* 2>&1 | tee -a build.log
 
-    - name: Clone OpenWrt source (specific branch)
+    - name: Clone OpenWrt source (specific tag/branch)
       run: |
-        echo "=== Cloning OpenWrt source (branch: $REPO_BRANCH) ===" | tee -a build.log
-        git clone --depth 1 --branch $REPO_BRANCH $REPO_URL openwrt 2>&1 | tee -a build.log
+        echo "=== Cloning OpenWrt source (ref: $REPO_BRANCH) ===" | tee -a build.log
+        if git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" openwrt 2>&1 | tee -a build.log; then
+          echo "✅ Clone succeeded using ref: $REPO_BRANCH" | tee -a build.log
+        else
+          echo "❌ Clone FAILED with ref: $REPO_BRANCH" | tee -a build.log
+          echo "--- Listing available tags (first 20) ---" | tee -a build.log
+          git ls-remote --tags "$REPO_URL" 2>&1 | tail -20 | tee -a build.log || true
+          echo "--- Listing available branches (first 20) ---" | tee -a build.log
+          git ls-remote --heads "$REPO_URL" 2>&1 | tail -20 | tee -a build.log || true
+          exit 1
+        fi
+        cd openwrt
+        echo "=== Actual checked-out commit ===" | tee -a ../build.log
+        git log -1 --oneline | tee -a ../build.log
+        cd ..
         rm -rf openwrt/.git 2>&1 | tee -a build.log
 
     - name: Update & Install feeds
