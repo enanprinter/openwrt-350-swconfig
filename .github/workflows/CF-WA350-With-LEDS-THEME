@@ -1,13 +1,18 @@
-name: Build OpenWrt for COMFAST CF-WA350 (with config diff)
+name: Build COMFAST CF-WA350 (kernel-6.18.44)
 
 on:
   workflow_dispatch:
+    inputs:
+      include_files:
+        description: 'Inject custom files from "files" directory'
+        required: false
+        default: false
+        type: boolean
   push:
     branches: [ main ]
 
 env:
   REPO_URL: https://git.openwrt.org/openwrt/openwrt.git
-  # تم إزالة تحديد الفرع ليتم بناء سناب شوت (الفرع الافتراضي master)
   TZ: Asia/Riyadh
 
 jobs:
@@ -85,6 +90,7 @@ jobs:
         python3 apply_patches.py 2>&1 | tee -a build.log
 
     - name: Inject custom files
+      if: ${{ github.event.inputs.include_files == 'true' }}
       run: |
         echo "=== Injecting custom files ===" | tee -a build.log
         if [ -d files ]; then
@@ -97,7 +103,7 @@ jobs:
     - name: Import cfw-leds package into openwrt/package/utils/
       run: |
         echo "=== Importing cfw-leds package ===" | tee -a build.log
-        CFW_REPO="https://github.com/enanprinter/cfw-leds.git"
+        CFW_REPO="https://github.com/haddad2inc/cfw-leds.git"
         TARGET_PARENT="openwrt/package/utils"
         TARGET_DIR="$TARGET_PARENT/cfw-leds"
         TMP_DIR="/tmp/cfw-leds-src"
@@ -116,7 +122,6 @@ jobs:
 
         rm -rf "$TMP_DIR/.git"
 
-        # المستودع يحتوي على مجلد فرعي باسم cfw-leds، ننسخ المجلد نفسه (وليس محتوياته)
         SRC_DIR="$TMP_DIR/cfw-leds"
         if [ ! -d "$SRC_DIR" ]; then
           echo "❌ ERROR: Expected subfolder '$SRC_DIR' not found." | tee -a build.log
@@ -125,13 +130,9 @@ jobs:
           exit 1
         fi
 
-        # التأكد من وجود المجلد الأب
         mkdir -p "$TARGET_PARENT"
-
-        # إزالة أي نسخة سابقة لتجنب التعارض
         rm -rf "$TARGET_DIR"
 
-        # نسخ المجلد cfw-leds بكامله إلى openwrt/package/utils/
         if cp -rv "$SRC_DIR" "$TARGET_PARENT"/ 2>&1 | tee -a build.log; then
           echo "✅ Copy to $TARGET_PARENT succeeded." | tee -a build.log
         else
@@ -160,6 +161,15 @@ jobs:
 
         echo "✅ cfw-leds package import completed." | tee -a build.log
 
+    - name: Set custom kernel version (KERNEL_TESTING_PATCHVER to 6.18)
+      run: |
+        echo "=== Setting KERNEL_TESTING_PATCHVER to 6.18 for ath79 ===" | tee -a build.log
+        cd openwrt
+        sed -i 's/^KERNEL_TESTING_PATCHVER:=.*/KERNEL_TESTING_PATCHVER:=6.18/' target/linux/ath79/Makefile
+        grep "KERNEL_TESTING_PATCHVER" target/linux/ath79/Makefile | tee -a ../build.log
+        echo "=== Current LINUX_VERSION for 6.18 (from kernel-version.mk) ===" | tee -a ../build.log
+        grep -E "LINUX_VERSION-6\.18" include/kernel-version.mk | tee -a ../build.log || true
+
     - name: Copy .config and verify active options
       run: |
         echo "=== Copying .config from repository root to openwrt/ ===" | tee -a build.log
@@ -167,17 +177,17 @@ jobs:
 
         cd openwrt
 
-        # 1. حفظ نسخة من .config قبل أي تعديل
         cp .config config-before.txt
 
-        # 2. طباعة الخيارات المفعّلة في الملف المستورد (قبل defconfig)
+        echo "CONFIG_TESTING_KERNEL=y" >> .config
+        echo "=== Added CONFIG_TESTING_KERNEL=y to .config ===" | tee -a ../build.log
+
         echo "=== Active options BEFORE defconfig (imported from repo) ===" | tee -a ../build.log
         echo "Count of enabled options (y/m):" | tee -a ../build.log
         grep -E '^CONFIG_.*=[ym]' .config | wc -l | tee -a ../build.log
         echo "Listing all enabled options:" | tee -a ../build.log
         grep -E '^CONFIG_.*=[ym]' .config | sort | tee -a ../build.log
 
-        # 3. التحقق من وجود الجهاز المستهدف قبل defconfig
         echo "=== Checking target device BEFORE defconfig ===" | tee -a ../build.log
         if grep -q "CONFIG_TARGET_ath79_generic_DEVICE_comfast_cf-wa350=y" .config; then
           echo "✅ Target device correctly set BEFORE defconfig." | tee -a ../build.log
@@ -185,51 +195,42 @@ jobs:
           echo "⚠️ Target device NOT set BEFORE defconfig. It will be added after." | tee -a ../build.log
         fi
 
-        # 4. تشغيل olddefconfig (للحفاظ على الاختيارات)
         echo "=== Running make olddefconfig ===" | tee -a ../build.log
         make olddefconfig 2>&1 | tee -a ../build.log
 
-        # 5. تشغيل defconfig (لحل التبعيات)
         echo "=== Running make defconfig ===" | tee -a ../build.log
         make defconfig 2>&1 | tee -a ../build.log
 
-        # 6. حفظ نسخة من .config بعد defconfig
         cp .config config-after.txt
 
-        # 7. إعادة فرض الجهاز المستهدف إذا فُقد
         echo "=== Checking target device AFTER defconfig ===" | tee -a ../build.log
         if ! grep -q "CONFIG_TARGET_ath79_generic_DEVICE_comfast_cf-wa350=y" .config; then
           echo "⚠️ Target device option missing after defconfig, re-adding..." | tee -a ../build.log
           echo "CONFIG_TARGET_ath79=y" >> .config
           echo "CONFIG_TARGET_ath79_generic=y" >> .config
           echo "CONFIG_TARGET_ath79_generic_DEVICE_comfast_cf-wa350=y" >> .config
-          # نعيد defconfig مرة أخرى لتحديث التبعيات
           make defconfig 2>&1 | tee -a ../build.log
-          # تحديث نسخة config-after.txt بعد الإضافة
           cp .config config-after.txt
         else
           echo "✅ Target device still correctly set AFTER defconfig." | tee -a ../build.log
         fi
 
-        # 8. طباعة الخيارات المفعّلة بعد defconfig
         echo "=== Active options AFTER defconfig ===" | tee -a ../build.log
         echo "Count of enabled options (y/m):" | tee -a ../build.log
         grep -E '^CONFIG_.*=[ym]' .config | wc -l | tee -a ../build.log
         echo "Listing all enabled options:" | tee -a ../build.log
         grep -E '^CONFIG_.*=[ym]' .config | sort | tee -a ../build.log
 
-        # 9. عرض الفروقات بين config-before.txt و config-after.txt (مع تجاهل التعليقات والأسطر الفارغة)
-        echo "=== Diff between BEFORE and AFTER defconfig (ignoring comments/empty lines) ===" | tee -a ../build.log
+        echo "=== Diff between BEFORE and AFTER defconfig ===" | tee -a ../build.log
         diff -u <(grep -v '^#' config-before.txt | grep -v '^$' | sort) \
                <(grep -v '^#' config-after.txt | grep -v '^$' | sort) 2>&1 | tee -a ../build.log || true
 
-        # 10. التحقق من خيارات بناء الصورة الأساسية
-        echo "=== Checking essential image build options AFTER defconfig ===" | tee -a ../build.log
+        echo "=== Checking essential image build options ===" | tee -a ../build.log
         for opt in CONFIG_TARGET_ROOTFS_SQUASHFS CONFIG_TARGET_ROOTFS_INITRAMFS; do
           if grep -q "$opt=y" .config; then
             echo "✅ $opt is enabled." | tee -a ../build.log
           else
-            echo "⚠️ $opt is NOT enabled. This may result in missing firmware files." | tee -a ../build.log
+            echo "⚠️ $opt is NOT enabled." | tee -a ../build.log
           fi
         done
 
@@ -264,9 +265,28 @@ jobs:
         echo "=== Building OpenWrt ===" | tee -a build.log
         echo "Build started at: $(date)" | tee -a build.log
         cd openwrt
-        make -j1 V=s 2>&1 | tee -a ../build.log
+        make -j2 V=s 2>&1 | tee -a ../build.log
         echo "Build finished at: $(date)" | tee -a build.log
       timeout-minutes: 360
+
+    - name: Verify actual kernel version in built image
+      run: |
+        echo "=== Verifying actual kernel version ===" | tee -a build.log
+        cd openwrt
+        echo "=== Kernel version from .config ===" | tee -a ../build.log
+        grep -E "^CONFIG_KERNEL_VERSION|^CONFIG_LINUX_VERSION|^CONFIG_KERNEL_PATCHVER" .config | tee -a ../build.log || true
+        echo "=== Kernel version from version file ===" | tee -a ../build.log
+        if [ -f bin/targets/ath79/generic/version.buildinfo ]; then
+          cat bin/targets/ath79/generic/version.buildinfo | tee -a ../build.log
+        fi
+        echo "=== Searching for kernel version in build artifacts ===" | tee -a ../build.log
+        find bin/targets/ath79/generic/ -name "*.manifest" -exec grep -i "kernel" {} \; 2>/dev/null | head -20 | tee -a ../build.log || true
+        echo "=== Kernel version from staging_dir (if available) ===" | tee -a ../build.log
+        if [ -f staging_dir/target-mips_24kc_musl/linux-ath79_generic/linux-6.18.44/.config ]; then
+          echo "✅ Kernel source directory found: linux-6.18.44" | tee -a ../build.log
+        else
+          ls -d staging_dir/target-mips_24kc_musl/linux-ath79_generic/linux-* 2>/dev/null | tee -a ../build.log || true
+        fi
 
     - name: List all files in bin/targets/ath79/generic/
       run: |
@@ -320,7 +340,10 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: openwrt-firmware-full
+        name: cf-wa350-${{ github.sha }}
         path: |
-          openwrt/bin/targets/ath79/generic/
+          openwrt/bin/targets/ath79/generic/openwrt-*comfast_cf-wa350*
+          openwrt/bin/targets/ath79/generic/sha256sums
+          openwrt/bin/targets/ath79/generic/BUILD-INFO.txt
+          openwrt/bin/targets/ath79/generic/config.buildinfo
         if-no-files-found: warn
