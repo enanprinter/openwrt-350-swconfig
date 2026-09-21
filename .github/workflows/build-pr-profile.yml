@@ -27,6 +27,11 @@ on:
         required: false
         default: true
         type: boolean
+      attach_theme:
+        description: 'Import luci-theme-enan-dashboard package and enable it in .config'
+        required: false
+        default: false
+        type: boolean
 
 env:
   REPO_URL: https://git.openwrt.org/openwrt/openwrt.git
@@ -58,7 +63,6 @@ jobs:
         BRANCH_INPUT="${{ github.event.inputs.openwrt_branch }}"
         PATCH_INPUT="${{ github.event.inputs.patch_version }}"
 
-        # --- Map branch choice to git branch name and series ---
         case "$BRANCH_INPUT" in
           snapshot)
             REF="master"
@@ -84,38 +88,31 @@ jobs:
         echo "Branch series   : ${SERIES:-<none>}"
         echo "Patch input     : ${PATCH_INPUT:-<empty>}"
 
-        # --- Determine which tag to use ---
         if [ -n "$PATCH_INPUT" ]; then
-          # Case 1: input contains dots → assume full version (e.g. "25.12.4")
           if echo "$PATCH_INPUT" | grep -q '\.'; then
             TAG="v${PATCH_INPUT}"
             echo "Patch input contains dots → using as full version: $TAG"
-          # Case 2: input is just a number (e.g. "4") → combine with series
           elif [ -n "$SERIES" ]; then
             TAG="v${SERIES}.${PATCH_INPUT}"
             echo "Patch input is a number → combined with series: $TAG"
           else
-            # No series available (snapshot) and input is just a number → error
             echo "❌ ERROR: Cannot combine patch '$PATCH_INPUT' with branch '$BRANCH_INPUT'"
             echo "   Please specify the full version (e.g. 24.10.7) or use a stable branch."
             exit 1
           fi
         else
-          # Case 3: no patch specified → find latest tag for this series
           if [ -z "$SERIES" ]; then
             echo "❌ ERROR: Branch 'snapshot' requires an explicit patch_version."
             echo "   Snapshot branch has no version tags."
             exit 1
           fi
           echo "No patch version specified, looking for latest tag in series '$SERIES'..."
-
           LATEST_TAG=$(git ls-remote --tags "$REPO_URL" "v${SERIES}.*" 2>/dev/null \
             | awk -F'refs/tags/' '{print $2}' \
             | grep -v '\^{}' \
             | grep -E "^v${SERIES}\.[0-9]+$" \
             | sort -V \
             | tail -n1)
-
           if [ -z "$LATEST_TAG" ]; then
             echo "❌ ERROR: Could not find any tag for series '$SERIES'"
             exit 1
@@ -124,7 +121,6 @@ jobs:
           echo "Auto-detected latest tag: $TAG"
         fi
 
-        # --- Verify the tag actually exists ---
         if ! git ls-remote --tags "$REPO_URL" "$TAG" | grep -q "refs/tags/$TAG"; then
           echo "❌ ERROR: Tag '$TAG' does not exist on $REPO_URL"
           echo ""
@@ -140,7 +136,6 @@ jobs:
 
         echo "✅ Using tag: $TAG"
 
-        # --- Export to environment ---
         echo "OPENWRT_REF=$REF" >> "$GITHUB_ENV"
         echo "OPENWRT_TAG=$TAG" >> "$GITHUB_ENV"
         echo "OPENWRT_BRANCH_INPUT=$BRANCH_INPUT" >> "$GITHUB_ENV"
@@ -236,6 +231,9 @@ jobs:
           echo "No 'files' directory found." | tee -a build.log
         fi
 
+    # -----------------------------------------------------------------------
+    # 4. Import cfw-leds package
+    # -----------------------------------------------------------------------
     - name: Import cfw-leds package into openwrt/package/utils/
       if: ${{ github.event.inputs.import_cfw_leds != 'false' }}
       run: |
@@ -298,6 +296,71 @@ jobs:
 
         echo "✅ cfw-leds package import completed." | tee -a build.log
 
+    # -----------------------------------------------------------------------
+    # 5. Import luci-theme-enan-dashboard package (optional)
+    # -----------------------------------------------------------------------
+    - name: Import luci-theme-enan-dashboard package into openwrt/package/
+      if: ${{ github.event.inputs.attach_theme == 'true' }}
+      run: |
+        echo "=== Importing luci-theme-enan-dashboard package ===" | tee -a build.log
+        THEME_REPO="https://github.com/haddad2inc/cfw-leds.git"
+        TARGET_PARENT="openwrt/package"
+        TARGET_DIR="$TARGET_PARENT/luci-theme-enan-dashboard"
+        TMP_DIR="/tmp/cfw-theme-src"
+
+        echo "Repo: $THEME_REPO" | tee -a build.log
+        echo "Target parent: $TARGET_PARENT" | tee -a build.log
+        echo "Expected final path: $TARGET_DIR" | tee -a build.log
+
+        rm -rf "$TMP_DIR"
+        if git clone --depth 1 "$THEME_REPO" "$TMP_DIR" 2>&1 | tee -a build.log; then
+          echo "✅ Clone succeeded." | tee -a build.log
+        else
+          echo "❌ Clone FAILED." | tee -a build.log
+          exit 1
+        fi
+
+        rm -rf "$TMP_DIR/.git"
+
+        SRC_DIR="$TMP_DIR/luci-theme-enan-dashboard"
+        if [ ! -d "$SRC_DIR" ]; then
+          echo "❌ ERROR: Expected subfolder '$SRC_DIR' not found." | tee -a build.log
+          echo "--- Listing TMP_DIR contents ---" | tee -a build.log
+          ls -la "$TMP_DIR" | tee -a build.log
+          exit 1
+        fi
+
+        mkdir -p "$TARGET_PARENT"
+        rm -rf "$TARGET_DIR"
+
+        if cp -rv "$SRC_DIR" "$TARGET_PARENT"/ 2>&1 | tee -a build.log; then
+          echo "✅ Copy to $TARGET_PARENT succeeded." | tee -a build.log
+        else
+          echo "❌ Copy FAILED." | tee -a build.log
+          exit 1
+        fi
+
+        echo "=== Listing imported files ===" | tee -a build.log
+        find "$TARGET_DIR" -type f -exec ls -lh {} \; 2>&1 | tee -a build.log
+
+        echo "=== Applying permissions ===" | tee -a build.log
+        chmod -R u+rwX,go+rX "$TARGET_DIR" 2>&1 | tee -a build.log
+        find "$TARGET_DIR" -type f -name "*.sh" -exec chmod +x {} \; 2>&1 | tee -a build.log
+        find "$TARGET_DIR" -type f -name "Makefile" -exec chmod 644 {} \; 2>&1 | tee -a build.log
+        find "$TARGET_DIR/files" -type f -exec chmod +x {} \; 2>/dev/null || true
+
+        echo "=== Verifying Makefile presence ===" | tee -a build.log
+        if [ -f "$TARGET_DIR/Makefile" ]; then
+          echo "✅ Makefile found at $TARGET_DIR/Makefile" | tee -a build.log
+          echo "--- Makefile header (first 20 lines) ---" | tee -a build.log
+          head -n 20 "$TARGET_DIR/Makefile" | tee -a build.log
+        else
+          echo "❌ ERROR: Makefile NOT found in $TARGET_DIR" | tee -a build.log
+          exit 1
+        fi
+
+        echo "✅ luci-theme-enan-dashboard package import completed." | tee -a build.log
+
     - name: Copy .config and verify active options
       run: |
         echo "=== Copying .config from repository root to openwrt/ ===" | tee -a build.log
@@ -308,14 +371,21 @@ jobs:
         # 1. حفظ نسخة من .config قبل أي تعديل
         cp .config config-before.txt
 
-        # 2. طباعة الخيارات المفعّلة في الملف المستورد (قبل defconfig)
+        # 2. حقن خيار الثيم إذا تم اختياره
+        if [ "${{ github.event.inputs.attach_theme }}" = "true" ]; then
+          echo "=== Injecting CONFIG_PACKAGE_luci-theme-enan-dashboard=y into .config ===" | tee -a ../build.log
+          echo "CONFIG_PACKAGE_luci-theme-enan-dashboard=y" >> .config
+          echo "✅ Injected theme config option." | tee -a ../build.log
+        fi
+
+        # 3. طباعة الخيارات المفعّلة في الملف المستورد (قبل defconfig)
         echo "=== Active options BEFORE defconfig (imported from repo) ===" | tee -a ../build.log
         echo "Count of enabled options (y/m):" | tee -a ../build.log
         grep -E '^CONFIG_.*=[ym]' .config | wc -l | tee -a ../build.log
         echo "Listing all enabled options:" | tee -a ../build.log
         grep -E '^CONFIG_.*=[ym]' .config | sort | tee -a ../build.log
 
-        # 3. التحقق من وجود الجهاز المستهدف قبل defconfig
+        # 4. التحقق من وجود الجهاز المستهدف قبل defconfig
         echo "=== Checking target device BEFORE defconfig ===" | tee -a ../build.log
         if grep -q "CONFIG_TARGET_ath79_generic_DEVICE_comfast_cf-wa350=y" .config; then
           echo "✅ Target device correctly set BEFORE defconfig." | tee -a ../build.log
@@ -323,45 +393,43 @@ jobs:
           echo "⚠️ Target device NOT set BEFORE defconfig. It will be added after." | tee -a ../build.log
         fi
 
-        # 4. تشغيل olddefconfig (للحفاظ على الاختيارات)
+        # 5. تشغيل olddefconfig (للحفاظ على الاختيارات)
         echo "=== Running make olddefconfig ===" | tee -a ../build.log
         make olddefconfig 2>&1 | tee -a ../build.log
 
-        # 5. تشغيل defconfig (لحل التبعيات)
+        # 6. تشغيل defconfig (لحل التبعيات)
         echo "=== Running make defconfig ===" | tee -a ../build.log
         make defconfig 2>&1 | tee -a ../build.log
 
-        # 6. حفظ نسخة من .config بعد defconfig
+        # 7. حفظ نسخة من .config بعد defconfig
         cp .config config-after.txt
 
-        # 7. إعادة فرض الجهاز المستهدف إذا فُقد
+        # 8. إعادة فرض الجهاز المستهدف إذا فُقد
         echo "=== Checking target device AFTER defconfig ===" | tee -a ../build.log
         if ! grep -q "CONFIG_TARGET_ath79_generic_DEVICE_comfast_cf-wa350=y" .config; then
           echo "⚠️ Target device option missing after defconfig, re-adding..." | tee -a ../build.log
           echo "CONFIG_TARGET_ath79=y" >> .config
           echo "CONFIG_TARGET_ath79_generic=y" >> .config
           echo "CONFIG_TARGET_ath79_generic_DEVICE_comfast_cf-wa350=y" >> .config
-          # نعيد defconfig مرة أخرى لتحديث التبعيات
           make defconfig 2>&1 | tee -a ../build.log
-          # تحديث نسخة config-after.txt بعد الإضافة
           cp .config config-after.txt
         else
           echo "✅ Target device still correctly set AFTER defconfig." | tee -a ../build.log
         fi
 
-        # 8. طباعة الخيارات المفعّلة بعد defconfig
+        # 9. طباعة الخيارات المفعّلة بعد defconfig
         echo "=== Active options AFTER defconfig ===" | tee -a ../build.log
         echo "Count of enabled options (y/m):" | tee -a ../build.log
         grep -E '^CONFIG_.*=[ym]' .config | wc -l | tee -a ../build.log
         echo "Listing all enabled options:" | tee -a ../build.log
         grep -E '^CONFIG_.*=[ym]' .config | sort | tee -a ../build.log
 
-        # 9. عرض الفروقات بين config-before.txt و config-after.txt (مع تجاهل التعليقات والأسطر الفارغة)
+        # 10. عرض الفروقات بين config-before.txt و config-after.txt (مع تجاهل التعليقات والأسطر الفارغة)
         echo "=== Diff between BEFORE and AFTER defconfig (ignoring comments/empty lines) ===" | tee -a ../build.log
         diff -u <(grep -v '^#' config-before.txt | grep -v '^$' | sort) \
                <(grep -v '^#' config-after.txt | grep -v '^$' | sort) 2>&1 | tee -a ../build.log || true
 
-        # 10. التحقق من خيارات بناء الصورة الأساسية
+        # 11. التحقق من خيارات بناء الصورة الأساسية
         echo "=== Checking essential image build options AFTER defconfig ===" | tee -a ../build.log
         for opt in CONFIG_TARGET_ROOTFS_SQUASHFS CONFIG_TARGET_ROOTFS_INITRAMFS; do
           if grep -q "$opt=y" .config; then
