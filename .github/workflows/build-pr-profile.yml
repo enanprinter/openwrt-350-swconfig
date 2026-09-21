@@ -1,8 +1,17 @@
-name: Build OpenWrt for COMFAST CF-WA350 (with config diff)
+name: Build OpenWrt for COMFAST CF-WA350 (multi-versions)
 
 on:
   workflow_dispatch:
     inputs:
+      openwrt_version:
+        description: 'OpenWrt version to build'
+        required: true
+        default: 'snapshot'
+        type: choice
+        options:
+          - snapshot
+          - 24.10
+          - 25.12
       include_files:
         description: 'Inject custom files from "files" directory'
         required: false
@@ -16,7 +25,6 @@ on:
 
 env:
   REPO_URL: https://git.openwrt.org/openwrt/openwrt.git
-  REPO_BRANCH: v24.10.8
   TZ: Asia/Riyadh
 
 jobs:
@@ -37,6 +45,32 @@ jobs:
         df -h
         du -sh . 2>/dev/null || true
 
+    - name: Resolve OpenWrt branch based on version choice
+      run: |
+        VERSION="${{ github.event.inputs.openwrt_version }}"
+        case "$VERSION" in
+          snapshot)
+            REF="master"
+            ;;
+          24.10)
+            REF="openwrt-24.10"
+            ;;
+          25.12)
+            REF="openwrt-25.12"
+            ;;
+          *)
+            echo "❌ ERROR: Unknown version '$VERSION'"
+            exit 1
+            ;;
+        esac
+
+        echo "=== Resolved OpenWrt version selection ==="
+        echo "Selected version : $VERSION"
+        echo "Resolved branch  : $REF"
+
+        echo "OPENWRT_REF=$REF" >> "$GITHUB_ENV"
+        echo "OPENWRT_VERSION=$VERSION" >> "$GITHUB_ENV"
+
     - name: Initialize build log
       run: |
         echo "=== BUILD LOG - $(date) ===" > build.log
@@ -44,6 +78,8 @@ jobs:
         echo "Repository: ${{ github.repository }}" >> build.log
         echo "Branch: ${{ github.ref_name }}" >> build.log
         echo "Commit: ${{ github.sha }}" >> build.log
+        echo "Selected OpenWrt version : $OPENWRT_VERSION" >> build.log
+        echo "Resolved OpenWrt branch  : $OPENWRT_REF" >> build.log
         echo "========================================" >> build.log
         echo "Build started at: $(date)" >> build.log
         echo "========================================" >> build.log
@@ -75,10 +111,25 @@ jobs:
         sudo apt clean 2>&1 | tee -a build.log
         sudo rm -rf /var/lib/apt/lists/* 2>&1 | tee -a build.log
 
-    - name: Clone OpenWrt source (shallow)
+    - name: Clone OpenWrt source (branch: ${{ env.OPENWRT_REF }})
       run: |
-        echo "=== Cloning OpenWrt source ===" | tee -a build.log
-        git clone --depth 1 --branch $REPO_BRANCH $REPO_URL openwrt 2>&1 | tee -a build.log
+        echo "=== Cloning OpenWrt source (branch: $OPENWRT_REF) ===" | tee -a build.log
+
+        # التحقق من وجود الفرع أولاً
+        echo "--- Checking if branch '$OPENWRT_REF' exists on remote ---" | tee -a build.log
+        if ! git ls-remote --heads "$REPO_URL" "$OPENWRT_REF" | grep -q "refs/heads/$OPENWRT_REF"; then
+          echo "❌ ERROR: Branch '$OPENWRT_REF' not found on $REPO_URL" | tee -a build.log
+          echo "" | tee -a build.log
+          echo "--- Available branches on remote ---" | tee -a build.log
+          git ls-remote --heads "$REPO_URL" 2>&1 \
+            | awk -F'refs/heads/' '{print $2}' \
+            | grep -E '^(master|main|openwrt-[0-9]+\.[0-9]+)$' \
+            | sort -u | tee -a build.log
+          exit 1
+        fi
+
+        echo "✅ Branch '$OPENWRT_REF' exists. Proceeding with clone..." | tee -a build.log
+        git clone --depth 1 --branch "$OPENWRT_REF" "$REPO_URL" openwrt 2>&1 | tee -a build.log
         rm -rf openwrt/.git 2>&1 | tee -a build.log
 
     - name: Update & Install feeds
@@ -127,7 +178,6 @@ jobs:
 
         rm -rf "$TMP_DIR/.git"
 
-        # المستودع يحتوي على مجلد فرعي باسم cfw-leds، ننسخ المجلد نفسه (وليس محتوياته)
         SRC_DIR="$TMP_DIR/cfw-leds"
         if [ ! -d "$SRC_DIR" ]; then
           echo "❌ ERROR: Expected subfolder '$SRC_DIR' not found." | tee -a build.log
@@ -136,13 +186,9 @@ jobs:
           exit 1
         fi
 
-        # التأكد من وجود المجلد الأب
         mkdir -p "$TARGET_PARENT"
-
-        # إزالة أي نسخة سابقة لتجنب التعارض
         rm -rf "$TARGET_DIR"
 
-        # نسخ المجلد cfw-leds بكامله إلى openwrt/package/utils/
         if cp -rv "$SRC_DIR" "$TARGET_PARENT"/ 2>&1 | tee -a build.log; then
           echo "✅ Copy to $TARGET_PARENT succeeded." | tee -a build.log
         else
@@ -250,7 +296,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: config-snapshots-24.10
+        name: config-snapshots-${{ github.event.inputs.openwrt_version }}
         path: |
           openwrt/config-before.txt
           openwrt/config-after.txt
@@ -273,6 +319,8 @@ jobs:
     - name: Build OpenWrt (using all available cores)
       run: |
         echo "=== Building OpenWrt ===" | tee -a build.log
+        echo "Selected version: $OPENWRT_VERSION" | tee -a build.log
+        echo "Resolved branch : $OPENWRT_REF" | tee -a build.log
         echo "Build started at: $(date)" | tee -a build.log
         cd openwrt
         make -j$(nproc) V=s 2>&1 | tee -a ../build.log
@@ -313,6 +361,8 @@ jobs:
         echo "=== Uploading log to repository ===" >> build.log
         echo "=== BUILD LOG END - $(date) ===" >> build.log
         echo "Build completed with status: ${{ job.status }}" >> build.log
+        echo "Selected version: $OPENWRT_VERSION" >> build.log
+        echo "Resolved branch : $OPENWRT_REF" >> build.log
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git add build.log
@@ -323,7 +373,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: full-build-log-24.10
+        name: full-build-log-${{ github.event.inputs.openwrt_version }}
         path: build.log
         if-no-files-found: error
 
@@ -331,7 +381,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: cf-wa350-24.10-${{ github.sha }}
+        name: cf-wa350-${{ github.event.inputs.openwrt_version }}-${{ github.sha }}
         path: |
           openwrt/bin/targets/ath79/generic/openwrt-*comfast_cf-wa350*
           openwrt/bin/targets/ath79/generic/sha256sums
