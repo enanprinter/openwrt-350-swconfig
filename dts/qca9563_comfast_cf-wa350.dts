@@ -70,7 +70,6 @@
 
 	watchdog {
 		compatible = "linux,wdt-gpio";
-		status = "disabled";
 		gpios = <&gpio 6 GPIO_ACTIVE_HIGH>;
 		hw_algo = "toggle";
 		hw_margin_ms = <500>;
