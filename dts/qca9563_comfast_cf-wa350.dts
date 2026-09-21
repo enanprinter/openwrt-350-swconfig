@@ -188,6 +188,7 @@
 				 * falling edge, which this board requires.
 				 */
 				qca,sgmii-rxclk-falling-edge;
+				qca,sgmii-enable-pll;
 
 				/*
 				 * qca,sgmii-enable-pll is deliberately omitted: the
