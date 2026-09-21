@@ -102,7 +102,8 @@ def patch_leds():
 
 
 # ---------------------------------------------------------------------------
-# 02_network — interfaces: anchor after comfast,cf-e560ac block
+# 02_network — interfaces:
+#   Line-based anchor injection after the "tplink,tl-wdr6500-v2)" case.
 # ---------------------------------------------------------------------------
 def patch_network():
     if not os.path.exists(NETWORK_FILE):
@@ -124,45 +125,56 @@ def patch_network():
         print(">>> 02_network interfaces already patched")
         return
 
-    anchor = (
-        '\tcomfast,cf-e560ac|\\\n'
-        '\tqca,ap143-8m|\\\n'
-        '\tqca,ap143-16m|\\\n'
-        '\ttplink,tl-wr841hp-v3|\\\n'
-        '\ttplink,tl-wdr6500-v2)\n'
-        '\t\tucidef_set_interface_wan "eth1"\n'
-        '\t\tucidef_add_switch "switch0" \\\n'
-        '\t\t\t"0@eth0" "1:lan" "2:lan" "3:lan" "4:lan"\n'
-        '\t\t;;\n'
-    )
+    # --- Prepare the injection block ---
+    injection = [
+        '\tcomfast,cf-wa350)',
+        '\t\tucidef_set_interfaces_lan_wan "lan" "wan"',
+        '\t\t;;',
+    ]
 
-    injection = (
-        '\tcomfast,cf-wa350)\n'
-        '\t\tucidef_set_interfaces_lan_wan "lan" "wan"\n'
-        '\t\t;;\n'
-    )
+    lines = iface_block.split('\n')
 
-    if anchor in iface_block:
-        new_block = iface_block.replace(anchor, anchor + injection, 1)
-        content = content[:iface_func_pos] + new_block + content[macs_func_pos:]
-        with open(NETWORK_FILE, "w") as f:
-            f.write(content)
-        print(">>> 02_network interfaces patched (anchor-based)")
-        return
+    # --- Locate the anchor line: "tplink,tl-wdr6500-v2)" ---
+    anchor_idx = -1
+    for i, line in enumerate(lines):
+        if line.strip() == 'tplink,tl-wdr6500-v2)':
+            anchor_idx = i
+            break
 
-    # Fallback: inject before the last esac inside ath79_setup_interfaces
-    print("!!! Anchor not found, falling back to esac injection")
-    esac_pos = iface_block.rfind("esac")
-    if esac_pos == -1:
+    if anchor_idx != -1:
+        # Find the closing ';;' for this case
+        end_idx = -1
+        for j in range(anchor_idx + 1, len(lines)):
+            if lines[j].strip() == ';;':
+                end_idx = j
+                break
+
+        if end_idx != -1:
+            lines = lines[:end_idx + 1] + injection + lines[end_idx + 1:]
+            new_block = '\n'.join(lines)
+            content = content[:iface_func_pos] + new_block + content[macs_func_pos:]
+            with open(NETWORK_FILE, "w") as f:
+                f.write(content)
+            print(">>> 02_network interfaces patched (after tplink,tl-wdr6500-v2)")
+            return
+        else:
+            print("!!! No ';;' found after tplink,tl-wdr6500-v2), falling back to esac")
+    else:
+        print("!!! 'tplink,tl-wdr6500-v2)' anchor not found, falling back to esac")
+
+    # --- Fallback: inject before the last esac inside ath79_setup_interfaces ---
+    esac_idx = -1
+    for i in range(len(lines) - 1, -1, -1):
+        if lines[i].strip() == 'esac':
+            esac_idx = i
+            break
+
+    if esac_idx == -1:
         print("!!! esac not found in ath79_setup_interfaces")
         return
 
-    new_block = (
-        iface_block[:esac_pos]
-        + injection
-        + '\n\t'
-        + iface_block[esac_pos:]
-    )
+    lines = lines[:esac_idx] + injection + lines[esac_idx:]
+    new_block = '\n'.join(lines)
     content = content[:iface_func_pos] + new_block + content[macs_func_pos:]
     with open(NETWORK_FILE, "w") as f:
         f.write(content)
