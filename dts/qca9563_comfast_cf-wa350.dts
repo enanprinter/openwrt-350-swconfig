@@ -73,7 +73,7 @@
 		status = "disabled";
 		gpios = <&gpio 6 GPIO_ACTIVE_HIGH>;
 		hw_algo = "toggle";
-		hw_margin_ms = <2000>;
+		hw_margin_ms = <500>;
 		always-running;
 	};
 };
@@ -189,7 +189,6 @@
 				 * falling edge, which this board requires.
 				 */
 				qca,sgmii-rxclk-falling-edge;
-				qca,sgmii-enable-pll;
 
 				/*
 				 * qca,sgmii-enable-pll is deliberately omitted: the
