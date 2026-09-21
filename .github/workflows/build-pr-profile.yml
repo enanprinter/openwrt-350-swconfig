@@ -13,7 +13,7 @@ on:
           - '24.10'
           - '25.12'
       patch_version:
-        description: 'Specific patch version (e.g. 25.12.4 or 24.10.7). Leave empty for latest.'
+        description: 'Patch version: "4" or "25.12.4" or empty for latest'
         required: false
         default: ''
         type: string
@@ -58,16 +58,19 @@ jobs:
         BRANCH_INPUT="${{ github.event.inputs.openwrt_branch }}"
         PATCH_INPUT="${{ github.event.inputs.patch_version }}"
 
-        # --- Map branch choice to git branch name ---
+        # --- Map branch choice to git branch name and series ---
         case "$BRANCH_INPUT" in
           snapshot)
             REF="master"
+            SERIES=""
             ;;
           24.10)
             REF="openwrt-24.10"
+            SERIES="24.10"
             ;;
           25.12)
             REF="openwrt-25.12"
+            SERIES="25.12"
             ;;
           *)
             echo "❌ ERROR: Unknown branch '$BRANCH_INPUT'"
@@ -78,19 +81,34 @@ jobs:
         echo "=== Resolved branch selection ==="
         echo "Branch input    : $BRANCH_INPUT"
         echo "Git branch      : $REF"
+        echo "Branch series   : ${SERIES:-<none>}"
+        echo "Patch input     : ${PATCH_INPUT:-<empty>}"
 
         # --- Determine which tag to use ---
         if [ -n "$PATCH_INPUT" ]; then
-          # User specified an exact patch version
-          TAG="v${PATCH_INPUT}"
-          echo "Patch input     : $PATCH_INPUT"
-          echo "Using explicit tag: $TAG"
+          # Case 1: input contains dots → assume full version (e.g. "25.12.4")
+          if echo "$PATCH_INPUT" | grep -q '\.'; then
+            TAG="v${PATCH_INPUT}"
+            echo "Patch input contains dots → using as full version: $TAG"
+          # Case 2: input is just a number (e.g. "4") → combine with series
+          elif [ -n "$SERIES" ]; then
+            TAG="v${SERIES}.${PATCH_INPUT}"
+            echo "Patch input is a number → combined with series: $TAG"
+          else
+            # No series available (snapshot) and input is just a number → error
+            echo "❌ ERROR: Cannot combine patch '$PATCH_INPUT' with branch '$BRANCH_INPUT'"
+            echo "   Please specify the full version (e.g. 24.10.7) or use a stable branch."
+            exit 1
+          fi
         else
-          # No patch specified → find latest tag for this branch series
-          SERIES=$(echo "$BRANCH_INPUT" | grep -Eo '^[0-9]+\.[0-9]+')
+          # Case 3: no patch specified → find latest tag for this series
+          if [ -z "$SERIES" ]; then
+            echo "❌ ERROR: Branch 'snapshot' requires an explicit patch_version."
+            echo "   Snapshot branch has no version tags."
+            exit 1
+          fi
           echo "No patch version specified, looking for latest tag in series '$SERIES'..."
 
-          # Fetch all tags matching the series (e.g. v25.12.*)
           LATEST_TAG=$(git ls-remote --tags "$REPO_URL" "v${SERIES}.*" 2>/dev/null \
             | awk -F'refs/tags/' '{print $2}' \
             | grep -v '\^{}' \
@@ -182,7 +200,6 @@ jobs:
         echo "Git branch : $OPENWRT_REF" | tee -a build.log
         echo "Git tag    : $OPENWRT_TAG" | tee -a build.log
 
-        # Clone the branch first (shallow), then fetch the specific tag
         git clone --depth 1 --branch "$OPENWRT_REF" "$REPO_URL" openwrt 2>&1 | tee -a build.log
         cd openwrt
 
