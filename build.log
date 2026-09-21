@@ -1,12 +1,12 @@
-=== BUILD LOG - Mon Sep 21 16:26:14 +03 2026 ===
+=== BUILD LOG - Mon Sep 21 16:40:49 +03 2026 ===
 Workflow triggered by: workflow_dispatch
 Repository: enanprinter/openwrt-350-swconfig
 Branch: main
-Commit: 1f1df9e71d83af7073732ac1735b53b70d8c8075
+Commit: b14c202b303e5a4c03cf3f6e09c1f1974989413a
 OpenWrt branch input  : 25.12
 OpenWrt git branch    : openwrt-25.12
-OpenWrt tag           : v25.12.4
-Patch version input   : 4
+OpenWrt tag           : v25.12.3
+Patch version input   : 3
 ========================================
-Build started at: Mon Sep 21 16:26:14 +03 2026
+Build started at: Mon Sep 21 16:40:49 +03 2026
 ========================================
