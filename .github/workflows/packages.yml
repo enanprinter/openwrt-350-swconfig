@@ -129,8 +129,13 @@ jobs:
 
           echo "=== Generated matrix ==="
           echo "$MATRIX" | jq .
-          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
 
+          # ✅ Use heredoc format for multi-line output
+          {
+            echo "matrix<<EOF_MATRIX"
+            echo "$MATRIX"
+            echo "EOF_MATRIX"
+          } >> "$GITHUB_OUTPUT"
   # ===========================================================================
   # Job 2: Build (runs once per matrix entry, in parallel)
   # ===========================================================================
