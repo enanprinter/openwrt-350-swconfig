@@ -9,9 +9,9 @@ on:
         default: 'snapshot'
         type: choice
         options:
-          - snapshot
-          - 24.10
-          - 25.12
+          - 'snapshot'
+          - '24.10'
+          - '25.12'
       include_files:
         description: 'Inject custom files from "files" directory'
         required: false
@@ -111,7 +111,7 @@ jobs:
         sudo apt clean 2>&1 | tee -a build.log
         sudo rm -rf /var/lib/apt/lists/* 2>&1 | tee -a build.log
 
-    - name: Clone OpenWrt source (branch: ${{ env.OPENWRT_REF }})
+    - name: "Clone OpenWrt source (branch: ${{ env.OPENWRT_REF }})"
       run: |
         echo "=== Cloning OpenWrt source (branch: $OPENWRT_REF) ===" | tee -a build.log
 
