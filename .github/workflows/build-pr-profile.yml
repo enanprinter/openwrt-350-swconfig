@@ -88,54 +88,65 @@ jobs:
         echo "Branch series   : ${SERIES:-<none>}"
         echo "Patch input     : ${PATCH_INPUT:-<empty>}"
 
-        if [ -n "$PATCH_INPUT" ]; then
-          if echo "$PATCH_INPUT" | grep -q '\.'; then
-            TAG="v${PATCH_INPUT}"
-            echo "Patch input contains dots → using as full version: $TAG"
-          elif [ -n "$SERIES" ]; then
-            TAG="v${SERIES}.${PATCH_INPUT}"
-            echo "Patch input is a number → combined with series: $TAG"
-          else
-            echo "❌ ERROR: Cannot combine patch '$PATCH_INPUT' with branch '$BRANCH_INPUT'"
-            echo "   Please specify the full version (e.g. 24.10.7) or use a stable branch."
-            exit 1
+        # --- Special case: snapshot branch (no tags exist) ---
+        if [ "$BRANCH_INPUT" = "snapshot" ]; then
+          if [ -n "$PATCH_INPUT" ]; then
+            echo "⚠️ WARNING: 'patch_version' was provided ('$PATCH_INPUT') but branch is 'snapshot'."
+            echo "           Snapshot has no version tags → ignoring patch_version."
           fi
+          TAG=""
+          echo "✅ Snapshot branch detected → using latest commit from '$REF' (no tag)."
         else
-          if [ -z "$SERIES" ]; then
-            echo "❌ ERROR: Branch 'snapshot' requires an explicit patch_version."
-            echo "   Snapshot branch has no version tags."
+          # --- Stable branches: determine which tag to use ---
+          if [ -n "$PATCH_INPUT" ]; then
+            if echo "$PATCH_INPUT" | grep -q '\.'; then
+              TAG="v${PATCH_INPUT}"
+              echo "Patch input contains dots → using as full version: $TAG"
+            elif [ -n "$SERIES" ]; then
+              TAG="v${SERIES}.${PATCH_INPUT}"
+              echo "Patch input is a number → combined with series: $TAG"
+            else
+              echo "❌ ERROR: Cannot combine patch '$PATCH_INPUT' with branch '$BRANCH_INPUT'"
+              exit 1
+            fi
+          else
+            if [ -z "$SERIES" ]; then
+              echo "❌ ERROR: Branch '$BRANCH_INPUT' requires an explicit patch_version."
+              exit 1
+            fi
+            echo "No patch version specified, looking for latest tag in series '$SERIES'..."
+            LATEST_TAG=$(git ls-remote --tags "$REPO_URL" "v${SERIES}.*" 2>/dev/null \
+              | awk -F'refs/tags/' '{print $2}' \
+              | grep -v '\^{}' \
+              | grep -E "^v${SERIES}\.[0-9]+$" \
+              | sort -V \
+              | tail -n1)
+            if [ -z "$LATEST_TAG" ]; then
+              echo "❌ ERROR: Could not find any tag for series '$SERIES'"
+              exit 1
+            fi
+            TAG="$LATEST_TAG"
+            echo "Auto-detected latest tag: $TAG"
+          fi
+
+          # --- Verify the tag actually exists ---
+          if ! git ls-remote --tags "$REPO_URL" "$TAG" | grep -q "refs/tags/$TAG"; then
+            echo "❌ ERROR: Tag '$TAG' does not exist on $REPO_URL"
+            echo ""
+            echo "--- Last 15 tags available on remote ---"
+            git ls-remote --tags "$REPO_URL" 2>&1 \
+              | awk -F'refs/tags/' '{print $2}' \
+              | grep -v '\^{}' \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+              | sort -V \
+              | tail -15
             exit 1
           fi
-          echo "No patch version specified, looking for latest tag in series '$SERIES'..."
-          LATEST_TAG=$(git ls-remote --tags "$REPO_URL" "v${SERIES}.*" 2>/dev/null \
-            | awk -F'refs/tags/' '{print $2}' \
-            | grep -v '\^{}' \
-            | grep -E "^v${SERIES}\.[0-9]+$" \
-            | sort -V \
-            | tail -n1)
-          if [ -z "$LATEST_TAG" ]; then
-            echo "❌ ERROR: Could not find any tag for series '$SERIES'"
-            exit 1
-          fi
-          TAG="$LATEST_TAG"
-          echo "Auto-detected latest tag: $TAG"
+
+          echo "✅ Using tag: $TAG"
         fi
 
-        if ! git ls-remote --tags "$REPO_URL" "$TAG" | grep -q "refs/tags/$TAG"; then
-          echo "❌ ERROR: Tag '$TAG' does not exist on $REPO_URL"
-          echo ""
-          echo "--- Last 15 tags available on remote ---"
-          git ls-remote --tags "$REPO_URL" 2>&1 \
-            | awk -F'refs/tags/' '{print $2}' \
-            | grep -v '\^{}' \
-            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
-            | sort -V \
-            | tail -15
-          exit 1
-        fi
-
-        echo "✅ Using tag: $TAG"
-
+        # --- Export to environment ---
         echo "OPENWRT_REF=$REF" >> "$GITHUB_ENV"
         echo "OPENWRT_TAG=$TAG" >> "$GITHUB_ENV"
         echo "OPENWRT_BRANCH_INPUT=$BRANCH_INPUT" >> "$GITHUB_ENV"
@@ -153,7 +164,7 @@ jobs:
         echo "Commit: ${{ github.sha }}" >> build.log
         echo "OpenWrt branch input  : $OPENWRT_BRANCH_INPUT" >> build.log
         echo "OpenWrt git branch    : $OPENWRT_REF" >> build.log
-        echo "OpenWrt tag           : $OPENWRT_TAG" >> build.log
+        echo "OpenWrt tag           : ${OPENWRT_TAG:-<none>}" >> build.log
         echo "Patch version input   : ${OPENWRT_PATCH_INPUT:-<empty>}" >> build.log
         echo "========================================" >> build.log
         echo "Build started at: $(date)" >> build.log
@@ -187,20 +198,24 @@ jobs:
         sudo rm -rf /var/lib/apt/lists/* 2>&1 | tee -a build.log
 
     # -----------------------------------------------------------------------
-    # 3. Clone OpenWrt at the resolved tag
+    # 3. Clone OpenWrt at the resolved tag (or branch for snapshot)
     # -----------------------------------------------------------------------
     - name: Clone OpenWrt source
       run: |
         echo "=== Cloning OpenWrt source ===" | tee -a build.log
         echo "Git branch : $OPENWRT_REF" | tee -a build.log
-        echo "Git tag    : $OPENWRT_TAG" | tee -a build.log
+        echo "Git tag    : ${OPENWRT_TAG:-<none - using latest commit from branch>}" | tee -a build.log
 
         git clone --depth 1 --branch "$OPENWRT_REF" "$REPO_URL" openwrt 2>&1 | tee -a build.log
         cd openwrt
 
-        echo "--- Fetching tag $OPENWRT_TAG ---" | tee -a ../build.log
-        git fetch --depth 1 origin "refs/tags/$OPENWRT_TAG:refs/tags/$OPENWRT_TAG" 2>&1 | tee -a ../build.log
-        git checkout "tags/$OPENWRT_TAG" 2>&1 | tee -a ../build.log
+        if [ -n "$OPENWRT_TAG" ]; then
+          echo "--- Fetching tag $OPENWRT_TAG ---" | tee -a ../build.log
+          git fetch --depth 1 origin "refs/tags/$OPENWRT_TAG:refs/tags/$OPENWRT_TAG" 2>&1 | tee -a ../build.log
+          git checkout "tags/$OPENWRT_TAG" 2>&1 | tee -a ../build.log
+        else
+          echo "--- No tag specified (snapshot) → keeping latest commit from '$OPENWRT_REF' ---" | tee -a ../build.log
+        fi
 
         echo "=== Actual checked-out commit ===" | tee -a ../build.log
         git log -1 --oneline | tee -a ../build.log
@@ -445,7 +460,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: config-snapshots-${{ github.event.inputs.openwrt_branch }}-${{ github.event.inputs.patch_version }}
+        name: config-snapshots-${{ github.event.inputs.openwrt_branch }}-${{ github.event.inputs.patch_version || 'latest' }}
         path: |
           openwrt/config-before.txt
           openwrt/config-after.txt
@@ -470,7 +485,7 @@ jobs:
         echo "=== Building OpenWrt ===" | tee -a build.log
         echo "Branch input   : $OPENWRT_BRANCH_INPUT" | tee -a build.log
         echo "Git branch     : $OPENWRT_REF" | tee -a build.log
-        echo "Git tag        : $OPENWRT_TAG" | tee -a build.log
+        echo "Git tag        : ${OPENWRT_TAG:-<none - snapshot>}" | tee -a build.log
         echo "Build started at: $(date)" | tee -a build.log
         cd openwrt
         make -j$(nproc) V=s 2>&1 | tee -a ../build.log
@@ -513,7 +528,7 @@ jobs:
         echo "Build completed with status: ${{ job.status }}" >> build.log
         echo "Branch input   : $OPENWRT_BRANCH_INPUT" >> build.log
         echo "Git branch     : $OPENWRT_REF" >> build.log
-        echo "Git tag        : $OPENWRT_TAG" >> build.log
+        echo "Git tag        : ${OPENWRT_TAG:-<none - snapshot>}" >> build.log
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git add build.log
@@ -524,7 +539,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: full-build-log-${{ github.event.inputs.openwrt_branch }}-${{ github.event.inputs.patch_version }}
+        name: full-build-log-${{ github.event.inputs.openwrt_branch }}-${{ github.event.inputs.patch_version || 'latest' }}
         path: build.log
         if-no-files-found: error
 
