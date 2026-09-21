@@ -2,6 +2,7 @@
 """Patch OpenWrt source tree to add support for COMFAST CF-WA350."""
 
 import os
+import re
 
 BASE = "openwrt"
 
@@ -17,7 +18,19 @@ DTS_DST = f"{BASE}/target/linux/ath79/dts/qca9563_comfast_cf-wa350.dts"
 
 
 # ---------------------------------------------------------------------------
-# 01_leds — anchor-based injection after telco,t1) block
+# Regex that matches the previously-injected cf-wa350 LED block (anywhere)
+# ---------------------------------------------------------------------------
+LED_BLOCK_RE = re.compile(
+    r'[\t ]*comfast,cf-wa350\)\n'
+    r'[\t ]*ucidef_set_led_netdev "wan" "WAN" "red:wan" "wan"\n'
+    r'[\t ]*ucidef_set_led_netdev "lan" "LAN" "green:lan" "lan"\n'
+    r'[\t ]*ucidef_set_led_wlan "wlan5g" "WLAN5G" "blue:wlan5g" "phy0tpt"\n'
+    r'[\t ]*;;\n?'
+)
+
+
+# ---------------------------------------------------------------------------
+# 01_leds — line-based anchor injection after telco,t1) case
 # ---------------------------------------------------------------------------
 def patch_leds():
     if not os.path.exists(LEDS_FILE):
@@ -27,43 +40,64 @@ def patch_leds():
     with open(LEDS_FILE, "r") as f:
         content = f.read()
 
-    if "comfast,cf-wa350)" in content:
-        print(">>> 01_leds already patched")
+    # --- 1. Clean up any broken/previous cf-wa350 injection ---
+    if LED_BLOCK_RE.search(content):
+        content = LED_BLOCK_RE.sub('', content)
+        # Remove any accidental double blank lines left behind
+        content = re.sub(r'\n\n\n+', '\n\n', content)
+        print(">>> 01_leds: removed previous cf-wa350 block")
+
+    # --- 2. Locate anchor line: "telco,t1)" ---
+    lines = content.split('\n')
+    anchor_idx = -1
+    for i, line in enumerate(lines):
+        if line.strip() == 'telco,t1)':
+            anchor_idx = i
+            break
+
+    # --- 3. Prepare the injection block ---
+    injection = [
+        '\tcomfast,cf-wa350)',
+        '\t\tucidef_set_led_netdev "wan" "WAN" "red:wan" "wan"',
+        '\t\tucidef_set_led_netdev "lan" "LAN" "green:lan" "lan"',
+        '\t\tucidef_set_led_wlan "wlan5g" "WLAN5G" "blue:wlan5g" "phy0tpt"',
+        '\t\t;;',
+    ]
+
+    if anchor_idx != -1:
+        # Find the ";;" that closes the telco case (first one after anchor)
+        end_idx = -1
+        for j in range(anchor_idx + 1, len(lines)):
+            if lines[j].strip() == ';;':
+                end_idx = j
+                break
+
+        if end_idx != -1:
+            lines = lines[:end_idx + 1] + injection + lines[end_idx + 1:]
+            with open(LEDS_FILE, "w") as f:
+                f.write('\n'.join(lines))
+            print(">>> 01_leds patched (anchor: telco,t1)")
+            return
+        else:
+            print("!!! No ';;' found after telco,t1), falling back to esac")
+
+    else:
+        print("!!! 'telco,t1)' anchor not found, falling back to esac")
+
+    # --- Fallback: inject just before the last 'esac' ---
+    esac_idx = -1
+    for i in range(len(lines) - 1, -1, -1):
+        if lines[i].strip() == 'esac':
+            esac_idx = i
+            break
+
+    if esac_idx == -1:
+        print("!!! No 'esac' found either, aborting")
         return
 
-    # Exact anchor block as it appears in 01_leds
-    anchor = (
-        '\ttelco,t1)\n'
-        '\t\tucidef_set_led_switch "lan" "LAN" "blue:lan" "switch0" "0x02"\n'
-        '\t\tucidef_set_led_netdev "wan" "WAN" "blue:wan" "eth1"\n'
-        '\t\t;;\n'
-    )
-
-    injection = (
-        '\tcomfast,cf-wa350)\n'
-        '\t\tucidef_set_led_netdev "wan" "WAN" "red:wan" "wan"\n'
-        '\t\tucidef_set_led_netdev "lan" "LAN" "green:lan" "lan"\n'
-        '\t\tucidef_set_led_wlan "wlan5g" "WLAN5G" "blue:wlan5g" "phy0tpt"\n'
-        '\t\t;;\n'
-    )
-
-    if anchor in content:
-        content = content.replace(anchor, anchor + injection, 1)
-        with open(LEDS_FILE, "w") as f:
-            f.write(content)
-        print(">>> 01_leds patched (anchor-based)")
-        return
-
-    # Fallback: inject before the last esac
-    print("!!! Anchor not found in 01_leds, falling back to esac injection")
-    esac_pos = content.rfind("esac")
-    if esac_pos == -1:
-        print("!!! esac not found in 01_leds")
-        return
-
-    content = content[:esac_pos] + injection + '\n\t' + content[esac_pos:]
+    lines = lines[:esac_idx] + injection + lines[esac_idx:]
     with open(LEDS_FILE, "w") as f:
-        f.write(content)
+        f.write('\n'.join(lines))
     print(">>> 01_leds patched (esac fallback)")
 
 
