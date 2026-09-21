@@ -152,9 +152,7 @@
  * The QCA8337 switch (reports PHY ID 0x004dd036, revision 2) exposes its
  * internal port PHYs on the external MDIO bus at addresses 0-4, while its
  * register protocol lives at addresses 0x10-0x18. Anchor the switch node at
- * 0x10 to avoid an address conflict with the port PHY at address 0, the same
- * layout proposed for the MikroTik RB2011 DSA conversion
- * (openwrt/openwrt#24999).
+ * 0x10 to avoid an address conflict with the port PHY at address 0.
  */
 &mdio0 {
 	status = "okay";
@@ -192,11 +190,10 @@
 				qca,sgmii-rxclk-falling-edge;
 
 				/*
-				 * qca,sgmii-enable-pll is deliberately omitted: this
-				 * unit carries a QCA8337 rev 2, and the qca8k driver
-				 * states the SGMII PLL should NOT be enabled on
-				 * revision 2 or more; the CPU link is stable at
-				 * 1G without it.
+				 * qca,sgmii-enable-pll is deliberately omitted: the
+				 * binding advises it for a QCA8337 SGMII CPU port
+				 * unless a communication issue is observed, and this
+				 * board's SGMII CPU link is stable at 1G without it.
 				 */
 
 				fixed-link {
@@ -210,8 +207,7 @@
 			 * of_get_phy_mode() falls back to PHY_INTERFACE_MODE_NA
 			 * when the property is absent, and qca8k then selects
 			 * the external MDIO bus because phy-handle is present
-			 * (qca8k_setup_mdio_bus()). Same layout as the pending
-			 * RB2011 conversion, openwrt/openwrt#24999.
+			 * (qca8k_setup_mdio_bus()).
 			 */
 			ethernet-port@1 {
 				reg = <1>;
