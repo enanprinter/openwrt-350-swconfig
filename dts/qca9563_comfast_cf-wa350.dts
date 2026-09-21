@@ -72,7 +72,7 @@
 		compatible = "linux,wdt-gpio";
 		gpios = <&gpio 6 GPIO_ACTIVE_HIGH>;
 		hw_algo = "toggle";
-		hw_margin_ms = <500>;
+		hw_margin_ms = <1000>;
 		always-running;
 	};
 };
@@ -165,7 +165,7 @@
 		reg = <1>;
 	};
 
-	ethernet-switch@10 {
+	switch@10 {
 		compatible = "qca,qca8337";
 		#address-cells = <1>;
 		#size-cells = <0>;
