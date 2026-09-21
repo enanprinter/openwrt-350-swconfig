@@ -72,7 +72,7 @@
 		compatible = "linux,wdt-gpio";
 		gpios = <&gpio 6 GPIO_ACTIVE_HIGH>;
 		hw_algo = "toggle";
-		hw_margin_ms = <500>;
+		hw_margin_ms = <2000>;
 		always-running;
 	};
 };
