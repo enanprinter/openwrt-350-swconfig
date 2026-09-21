@@ -3,8 +3,8 @@ name: Build OpenWrt for COMFAST CF-WA350 (multi-versions)
 on:
   workflow_dispatch:
     inputs:
-      openwrt_version:
-        description: 'OpenWrt version to build'
+      openwrt_branch:
+        description: 'OpenWrt branch to build'
         required: true
         default: 'snapshot'
         type: choice
@@ -12,6 +12,11 @@ on:
           - 'snapshot'
           - '24.10'
           - '25.12'
+      patch_version:
+        description: 'Specific patch version (e.g. 25.12.4 or 24.10.7). Leave empty for latest.'
+        required: false
+        default: ''
+        type: string
       include_files:
         description: 'Inject custom files from "files" directory'
         required: false
@@ -45,10 +50,16 @@ jobs:
         df -h
         du -sh . 2>/dev/null || true
 
-    - name: Resolve OpenWrt branch based on version choice
+    # -----------------------------------------------------------------------
+    # 1. Resolve branch and version (tag) based on user input
+    # -----------------------------------------------------------------------
+    - name: Resolve OpenWrt branch and version
       run: |
-        VERSION="${{ github.event.inputs.openwrt_version }}"
-        case "$VERSION" in
+        BRANCH_INPUT="${{ github.event.inputs.openwrt_branch }}"
+        PATCH_INPUT="${{ github.event.inputs.patch_version }}"
+
+        # --- Map branch choice to git branch name ---
+        case "$BRANCH_INPUT" in
           snapshot)
             REF="master"
             ;;
@@ -59,18 +70,67 @@ jobs:
             REF="openwrt-25.12"
             ;;
           *)
-            echo "❌ ERROR: Unknown version '$VERSION'"
+            echo "❌ ERROR: Unknown branch '$BRANCH_INPUT'"
             exit 1
             ;;
         esac
 
-        echo "=== Resolved OpenWrt version selection ==="
-        echo "Selected version : $VERSION"
-        echo "Resolved branch  : $REF"
+        echo "=== Resolved branch selection ==="
+        echo "Branch input    : $BRANCH_INPUT"
+        echo "Git branch      : $REF"
 
+        # --- Determine which tag to use ---
+        if [ -n "$PATCH_INPUT" ]; then
+          # User specified an exact patch version
+          TAG="v${PATCH_INPUT}"
+          echo "Patch input     : $PATCH_INPUT"
+          echo "Using explicit tag: $TAG"
+        else
+          # No patch specified → find latest tag for this branch series
+          SERIES=$(echo "$BRANCH_INPUT" | grep -Eo '^[0-9]+\.[0-9]+')
+          echo "No patch version specified, looking for latest tag in series '$SERIES'..."
+
+          # Fetch all tags matching the series (e.g. v25.12.*)
+          LATEST_TAG=$(git ls-remote --tags "$REPO_URL" "v${SERIES}.*" 2>/dev/null \
+            | awk -F'refs/tags/' '{print $2}' \
+            | grep -v '\^{}' \
+            | grep -E "^v${SERIES}\.[0-9]+$" \
+            | sort -V \
+            | tail -n1)
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "❌ ERROR: Could not find any tag for series '$SERIES'"
+            exit 1
+          fi
+          TAG="$LATEST_TAG"
+          echo "Auto-detected latest tag: $TAG"
+        fi
+
+        # --- Verify the tag actually exists ---
+        if ! git ls-remote --tags "$REPO_URL" "$TAG" | grep -q "refs/tags/$TAG"; then
+          echo "❌ ERROR: Tag '$TAG' does not exist on $REPO_URL"
+          echo ""
+          echo "--- Last 15 tags available on remote ---"
+          git ls-remote --tags "$REPO_URL" 2>&1 \
+            | awk -F'refs/tags/' '{print $2}' \
+            | grep -v '\^{}' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | sort -V \
+            | tail -15
+          exit 1
+        fi
+
+        echo "✅ Using tag: $TAG"
+
+        # --- Export to environment ---
         echo "OPENWRT_REF=$REF" >> "$GITHUB_ENV"
-        echo "OPENWRT_VERSION=$VERSION" >> "$GITHUB_ENV"
+        echo "OPENWRT_TAG=$TAG" >> "$GITHUB_ENV"
+        echo "OPENWRT_BRANCH_INPUT=$BRANCH_INPUT" >> "$GITHUB_ENV"
+        echo "OPENWRT_PATCH_INPUT=$PATCH_INPUT" >> "$GITHUB_ENV"
 
+    # -----------------------------------------------------------------------
+    # 2. Initialize build log
+    # -----------------------------------------------------------------------
     - name: Initialize build log
       run: |
         echo "=== BUILD LOG - $(date) ===" > build.log
@@ -78,8 +138,10 @@ jobs:
         echo "Repository: ${{ github.repository }}" >> build.log
         echo "Branch: ${{ github.ref_name }}" >> build.log
         echo "Commit: ${{ github.sha }}" >> build.log
-        echo "Selected OpenWrt version : $OPENWRT_VERSION" >> build.log
-        echo "Resolved OpenWrt branch  : $OPENWRT_REF" >> build.log
+        echo "OpenWrt branch input  : $OPENWRT_BRANCH_INPUT" >> build.log
+        echo "OpenWrt git branch    : $OPENWRT_REF" >> build.log
+        echo "OpenWrt tag           : $OPENWRT_TAG" >> build.log
+        echo "Patch version input   : ${OPENWRT_PATCH_INPUT:-<empty>}" >> build.log
         echo "========================================" >> build.log
         echo "Build started at: $(date)" >> build.log
         echo "========================================" >> build.log
@@ -111,25 +173,27 @@ jobs:
         sudo apt clean 2>&1 | tee -a build.log
         sudo rm -rf /var/lib/apt/lists/* 2>&1 | tee -a build.log
 
-    - name: "Clone OpenWrt source (branch: ${{ env.OPENWRT_REF }})"
+    # -----------------------------------------------------------------------
+    # 3. Clone OpenWrt at the resolved tag
+    # -----------------------------------------------------------------------
+    - name: Clone OpenWrt source
       run: |
-        echo "=== Cloning OpenWrt source (branch: $OPENWRT_REF) ===" | tee -a build.log
+        echo "=== Cloning OpenWrt source ===" | tee -a build.log
+        echo "Git branch : $OPENWRT_REF" | tee -a build.log
+        echo "Git tag    : $OPENWRT_TAG" | tee -a build.log
 
-        # التحقق من وجود الفرع أولاً
-        echo "--- Checking if branch '$OPENWRT_REF' exists on remote ---" | tee -a build.log
-        if ! git ls-remote --heads "$REPO_URL" "$OPENWRT_REF" | grep -q "refs/heads/$OPENWRT_REF"; then
-          echo "❌ ERROR: Branch '$OPENWRT_REF' not found on $REPO_URL" | tee -a build.log
-          echo "" | tee -a build.log
-          echo "--- Available branches on remote ---" | tee -a build.log
-          git ls-remote --heads "$REPO_URL" 2>&1 \
-            | awk -F'refs/heads/' '{print $2}' \
-            | grep -E '^(master|main|openwrt-[0-9]+\.[0-9]+)$' \
-            | sort -u | tee -a build.log
-          exit 1
-        fi
-
-        echo "✅ Branch '$OPENWRT_REF' exists. Proceeding with clone..." | tee -a build.log
+        # Clone the branch first (shallow), then fetch the specific tag
         git clone --depth 1 --branch "$OPENWRT_REF" "$REPO_URL" openwrt 2>&1 | tee -a build.log
+        cd openwrt
+
+        echo "--- Fetching tag $OPENWRT_TAG ---" | tee -a ../build.log
+        git fetch --depth 1 origin "refs/tags/$OPENWRT_TAG:refs/tags/$OPENWRT_TAG" 2>&1 | tee -a ../build.log
+        git checkout "tags/$OPENWRT_TAG" 2>&1 | tee -a ../build.log
+
+        echo "=== Actual checked-out commit ===" | tee -a ../build.log
+        git log -1 --oneline | tee -a ../build.log
+
+        cd ..
         rm -rf openwrt/.git 2>&1 | tee -a build.log
 
     - name: Update & Install feeds
@@ -296,7 +360,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: config-snapshots-${{ github.event.inputs.openwrt_version }}
+        name: config-snapshots-${{ github.event.inputs.openwrt_branch }}-${{ github.event.inputs.patch_version }}
         path: |
           openwrt/config-before.txt
           openwrt/config-after.txt
@@ -319,8 +383,9 @@ jobs:
     - name: Build OpenWrt (using all available cores)
       run: |
         echo "=== Building OpenWrt ===" | tee -a build.log
-        echo "Selected version: $OPENWRT_VERSION" | tee -a build.log
-        echo "Resolved branch : $OPENWRT_REF" | tee -a build.log
+        echo "Branch input   : $OPENWRT_BRANCH_INPUT" | tee -a build.log
+        echo "Git branch     : $OPENWRT_REF" | tee -a build.log
+        echo "Git tag        : $OPENWRT_TAG" | tee -a build.log
         echo "Build started at: $(date)" | tee -a build.log
         cd openwrt
         make -j$(nproc) V=s 2>&1 | tee -a ../build.log
@@ -361,8 +426,9 @@ jobs:
         echo "=== Uploading log to repository ===" >> build.log
         echo "=== BUILD LOG END - $(date) ===" >> build.log
         echo "Build completed with status: ${{ job.status }}" >> build.log
-        echo "Selected version: $OPENWRT_VERSION" >> build.log
-        echo "Resolved branch : $OPENWRT_REF" >> build.log
+        echo "Branch input   : $OPENWRT_BRANCH_INPUT" >> build.log
+        echo "Git branch     : $OPENWRT_REF" >> build.log
+        echo "Git tag        : $OPENWRT_TAG" >> build.log
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git add build.log
@@ -373,7 +439,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: full-build-log-${{ github.event.inputs.openwrt_version }}
+        name: full-build-log-${{ github.event.inputs.openwrt_branch }}-${{ github.event.inputs.patch_version }}
         path: build.log
         if-no-files-found: error
 
@@ -381,7 +447,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: cf-wa350-${{ github.event.inputs.openwrt_version }}-${{ github.sha }}
+        name: cf-wa350-${{ github.event.inputs.openwrt_branch }}-${{ github.event.inputs.patch_version || 'latest' }}-${{ github.sha }}
         path: |
           openwrt/bin/targets/ath79/generic/openwrt-*comfast_cf-wa350*
           openwrt/bin/targets/ath79/generic/sha256sums
