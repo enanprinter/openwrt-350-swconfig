@@ -81,7 +81,7 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - name: Checkout your repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -174,7 +174,7 @@ jobs:
 
     steps:
     - name: Checkout your repo
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
 
@@ -393,7 +393,6 @@ jobs:
         echo "Target parent: $TARGET_PARENT" | tee -a "$LOGFILE"
         echo "Target dir   : $TARGET_DIR" | tee -a "$LOGFILE"
 
-        # --- Verify local source exists ---
         if [ ! -d "$LOCAL_SRC" ]; then
           echo "❌ ERROR: Local folder '$LOCAL_SRC' not found in repository." | tee -a "$LOGFILE"
           echo "--- Top-level repository contents ---" | tee -a "$LOGFILE"
@@ -404,15 +403,12 @@ jobs:
         echo "--- Local source contents ---" | tee -a "$LOGFILE"
         find "$LOCAL_SRC" -maxdepth 2 -type f -exec ls -lh {} \; 2>&1 | tee -a "$LOGFILE"
 
-        # --- Verify local source has a Makefile ---
         if [ ! -f "$LOCAL_SRC/Makefile" ]; then
           echo "❌ ERROR: Makefile NOT found in '$LOCAL_SRC/Makefile'" | tee -a "$LOGFILE"
-          echo "--- Contents of $LOCAL_SRC ---" | tee -a "$LOGFILE"
           ls -la "$LOCAL_SRC" | tee -a "$LOGFILE"
           exit 1
         fi
 
-        # --- Copy local folder into OpenWrt tree ---
         mkdir -p "$TARGET_PARENT"
         rm -rf "$TARGET_DIR"
 
@@ -432,10 +428,8 @@ jobs:
         find "$TARGET_DIR" -type f -name "Makefile" -exec chmod 644 {} \; 2>&1 | tee -a "$LOGFILE"
         find "$TARGET_DIR/files" -type f -exec chmod +x {} \; 2>/dev/null || true
 
-        echo "=== Verifying Makefile presence at target ===" | tee -a "$LOGFILE"
         if [ -f "$TARGET_DIR/Makefile" ]; then
           echo "✅ Makefile found at $TARGET_DIR/Makefile" | tee -a "$LOGFILE"
-          echo "--- Makefile header (first 20 lines) ---" | tee -a "$LOGFILE"
           head -n 20 "$TARGET_DIR/Makefile" | tee -a "$LOGFILE"
         else
           echo "❌ ERROR: Makefile NOT found in $TARGET_DIR" | tee -a "$LOGFILE"
@@ -459,7 +453,6 @@ jobs:
         echo "Target parent: $TARGET_PARENT" | tee -a "$LOGFILE"
         echo "Target dir   : $TARGET_DIR" | tee -a "$LOGFILE"
 
-        # --- Verify local source exists ---
         if [ ! -d "$LOCAL_SRC" ]; then
           echo "❌ ERROR: Local folder '$LOCAL_SRC' not found in repository." | tee -a "$LOGFILE"
           echo "--- Top-level repository contents ---" | tee -a "$LOGFILE"
@@ -470,15 +463,12 @@ jobs:
         echo "--- Local source contents ---" | tee -a "$LOGFILE"
         find "$LOCAL_SRC" -maxdepth 2 -type f -exec ls -lh {} \; 2>&1 | tee -a "$LOGFILE"
 
-        # --- Verify local source has a Makefile ---
         if [ ! -f "$LOCAL_SRC/Makefile" ]; then
           echo "❌ ERROR: Makefile NOT found in '$LOCAL_SRC/Makefile'" | tee -a "$LOGFILE"
-          echo "--- Contents of $LOCAL_SRC ---" | tee -a "$LOGFILE"
           ls -la "$LOCAL_SRC" | tee -a "$LOGFILE"
           exit 1
         fi
 
-        # --- Copy local folder into OpenWrt tree ---
         mkdir -p "$TARGET_PARENT"
         rm -rf "$TARGET_DIR"
 
@@ -498,10 +488,8 @@ jobs:
         find "$TARGET_DIR" -type f -name "Makefile" -exec chmod 644 {} \; 2>&1 | tee -a "$LOGFILE"
         find "$TARGET_DIR/files" -type f -exec chmod +x {} \; 2>/dev/null || true
 
-        echo "=== Verifying Makefile presence at target ===" | tee -a "$LOGFILE"
         if [ -f "$TARGET_DIR/Makefile" ]; then
           echo "✅ Makefile found at $TARGET_DIR/Makefile" | tee -a "$LOGFILE"
-          echo "--- Makefile header (first 20 lines) ---" | tee -a "$LOGFILE"
           head -n 20 "$TARGET_DIR/Makefile" | tee -a "$LOGFILE"
         else
           echo "❌ ERROR: Makefile NOT found in $TARGET_DIR" | tee -a "$LOGFILE"
@@ -603,7 +591,7 @@ jobs:
 
     - name: Upload config snapshots (before/after)
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: config-snapshots-${{ matrix.label }}
         path: |
@@ -693,7 +681,7 @@ jobs:
 
     - name: Upload full log as artifact (always)
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: full-build-log-${{ matrix.label }}
         path: ${{ env.LOGFILE }}
@@ -701,7 +689,7 @@ jobs:
 
     - name: Upload firmware and all build artifacts
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: cf-wa350-${{ matrix.label }}-${{ github.sha }}
         path: |
