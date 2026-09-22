@@ -321,11 +321,6 @@ jobs:
         echo "=== Applying patches ===" | tee -a "$LOGFILE"
         python3 apply_patches.py 2>&1 | tee -a "$LOGFILE"
 
-    # -----------------------------------------------------------------------
-    # When import_cfw_leds is disabled, remove cfw-leds from DEVICE_PACKAGES
-    # in generic.mk, otherwise the image build will fail with a missing
-    # package error (which currently does not abort the workflow).
-    # -----------------------------------------------------------------------
     - name: Remove cfw-leds from DEVICE_PACKAGES when import_cfw_leds=false
       if: ${{ github.event.inputs.import_cfw_leds == 'false' }}
       run: |
@@ -478,6 +473,12 @@ jobs:
 
         echo "✅ luci-theme-enan-dashboard package import completed." | tee -a "$LOGFILE"
 
+    # =======================================================================
+    # .config handling — CORRECT ORDER:
+    #   1. make defconfig      → expand base config into a complete, consistent state
+    #   2. inject custom opts  → add/remove the options we care about
+    #   3. make olddefconfig   → merge and resolve remaining dependencies
+    # =======================================================================
     - name: Copy .config and verify active options
       run: |
         set -o pipefail
@@ -485,70 +486,93 @@ jobs:
         cp -v .config openwrt/.config 2>&1 | tee -a "$LOGFILE"
 
         cd openwrt
+
+        # Keep a pristine copy for comparison
         cp .config config-before.txt
 
+        # Clean stale tmp config artifacts to avoid "out of sync" issues
+        rm -f tmp/.config tmp/.config.old 2>/dev/null || true
+
+        # -----------------------------------------------------------------
+        # STEP 1: Generate a complete, consistent base config
+        # -----------------------------------------------------------------
+        echo "=== STEP 1: Running make defconfig (expand base config) ===" | tee -a "../$LOGFILE"
+        make defconfig 2>&1 | tee -a "../$LOGFILE"
+
+        echo "=== Active options AFTER base defconfig ===" | tee -a "../$LOGFILE"
+        grep -E '^CONFIG_.*=[ym]' .config | wc -l | tee -a "../$LOGFILE"
+
+        # -----------------------------------------------------------------
+        # STEP 2: Inject custom options (after base config is complete)
+        # -----------------------------------------------------------------
+        echo "=== STEP 2: Injecting custom options ===" | tee -a "../$LOGFILE"
+
+        # Theme injection (if requested)
         if [ "${{ github.event.inputs.attach_theme }}" = "true" ]; then
-          echo "=== Injecting CONFIG_PACKAGE_luci-theme-enan-dashboard=y ===" | tee -a "../$LOGFILE"
+          echo "--- Injecting CONFIG_PACKAGE_luci-theme-enan-dashboard=y ---" | tee -a "../$LOGFILE"
           sed -i '/^CONFIG_PACKAGE_luci-theme-enan-dashboard=/d' .config
           sed -i '/^# CONFIG_PACKAGE_luci-theme-enan-dashboard is not set/d' .config
           echo "CONFIG_PACKAGE_luci-theme-enan-dashboard=y" >> .config
-          echo "✅ Injected theme config option." | tee -a "../$LOGFILE"
+          echo "✅ Theme option injected." | tee -a "../$LOGFILE"
         fi
 
+        # cfw-leds disable (if import_cfw_leds=false)
         if [ "${{ github.event.inputs.import_cfw_leds }}" = "false" ]; then
-          echo "=== Disabling CONFIG_PACKAGE_cfw-leds in .config ===" | tee -a "../$LOGFILE"
-          grep -nE '^CONFIG_PACKAGE_cfw-leds|^# CONFIG_PACKAGE_cfw-leds is not set' .config | tee -a "../$LOGFILE" || echo "(no matching lines found)" | tee -a "../$LOGFILE"
-
+          echo "--- Force-disabling CONFIG_PACKAGE_cfw-leds ---" | tee -a "../$LOGFILE"
           sed -i '/^CONFIG_PACKAGE_cfw-leds=/d' .config
           sed -i '/^# CONFIG_PACKAGE_cfw-leds is not set/d' .config
           echo "# CONFIG_PACKAGE_cfw-leds is not set" >> .config
-
-          grep -nE '^CONFIG_PACKAGE_cfw-leds|^# CONFIG_PACKAGE_cfw-leds is not set' .config | tee -a "../$LOGFILE" || true
-          echo "✅ cfw-leds has been force-disabled in .config" | tee -a "../$LOGFILE"
+          echo "✅ cfw-leds force-disabled." | tee -a "../$LOGFILE"
         fi
 
-        echo "=== Active options BEFORE defconfig ===" | tee -a "../$LOGFILE"
-        grep -E '^CONFIG_.*=[ym]' .config | wc -l | tee -a "../$LOGFILE"
-
-        if grep -q "CONFIG_TARGET_ath79_generic_DEVICE_comfast_cf-wa350=y" .config; then
-          echo "✅ Target device correctly set BEFORE defconfig." | tee -a "../$LOGFILE"
-        else
-          echo "⚠️ Target device NOT set BEFORE defconfig." | tee -a "../$LOGFILE"
-        fi
-
-        echo "=== Running make olddefconfig ===" | tee -a "../$LOGFILE"
-        make olddefconfig 2>&1 | tee -a "../$LOGFILE"
-
-        echo "=== Running make defconfig ===" | tee -a "../$LOGFILE"
-        make defconfig 2>&1 | tee -a "../$LOGFILE"
-
-        cp .config config-after.txt
-
+        # Ensure target device is set
         if ! grep -q "CONFIG_TARGET_ath79_generic_DEVICE_comfast_cf-wa350=y" .config; then
-          echo "⚠️ Re-adding target device..." | tee -a "../$LOGFILE"
+          echo "--- Target device missing → re-adding ---" | tee -a "../$LOGFILE"
           echo "CONFIG_TARGET_ath79=y" >> .config
           echo "CONFIG_TARGET_ath79_generic=y" >> .config
           echo "CONFIG_TARGET_ath79_generic_DEVICE_comfast_cf-wa350=y" >> .config
-          make defconfig 2>&1 | tee -a "../$LOGFILE"
-          cp .config config-after.txt
         else
-          echo "✅ Target device still correctly set AFTER defconfig." | tee -a "../$LOGFILE"
+          echo "✅ Target device is set." | tee -a "../$LOGFILE"
         fi
 
+        # -----------------------------------------------------------------
+        # STEP 3: Merge custom options and resolve dependencies
+        # -----------------------------------------------------------------
+        echo "=== STEP 3: Running make olddefconfig (merge custom options) ===" | tee -a "../$LOGFILE"
+        KCONFIG_OVERWRITECONFIG=1 make olddefconfig 2>&1 | tee -a "../$LOGFILE"
+
+        cp .config config-after.txt
+
+        # -----------------------------------------------------------------
+        # Post-step verification
+        # -----------------------------------------------------------------
+        echo "=== Verifying target device AFTER olddefconfig ===" | tee -a "../$LOGFILE"
+        if grep -q "CONFIG_TARGET_ath79_generic_DEVICE_comfast_cf-wa350=y" .config; then
+          echo "✅ Target device still correctly set." | tee -a "../$LOGFILE"
+        else
+          echo "❌ ERROR: Target device lost after olddefconfig!" | tee -a "../$LOGFILE"
+          exit 1
+        fi
+
+        # Re-check cfw-leds state
         if [ "${{ github.event.inputs.import_cfw_leds }}" = "false" ]; then
-          echo "=== Verifying cfw-leds is still disabled AFTER defconfig ===" | tee -a "../$LOGFILE"
+          echo "=== Verifying cfw-leds is still disabled ===" | tee -a "../$LOGFILE"
           if grep -qE '^CONFIG_PACKAGE_cfw-leds=y' .config; then
-            echo "⚠️ defconfig re-enabled cfw-leds → forcing it back to 'is not set'" | tee -a "../$LOGFILE"
+            echo "⚠️ cfw-leds re-enabled → forcing it back to 'is not set'" | tee -a "../$LOGFILE"
             sed -i '/^CONFIG_PACKAGE_cfw-leds=/d' .config
             sed -i '/^# CONFIG_PACKAGE_cfw-leds is not set/d' .config
             echo "# CONFIG_PACKAGE_cfw-leds is not set" >> .config
-            echo "✅ Re-disabled cfw-leds after defconfig." | tee -a "../$LOGFILE"
+            echo "✅ Re-disabled cfw-leds." | tee -a "../$LOGFILE"
           else
-            echo "✅ cfw-leds correctly remains disabled." | tee -a "../$LOGFILE"
+            echo "✅ cfw-leds remains disabled." | tee -a "../$LOGFILE"
           fi
         fi
 
-        echo "=== Diff before/after defconfig ===" | tee -a "../$LOGFILE"
+        # Final active options count
+        echo "=== Active options AFTER full processing ===" | tee -a "../$LOGFILE"
+        grep -E '^CONFIG_.*=[ym]' .config | wc -l | tee -a "../$LOGFILE"
+
+        echo "=== Diff before/after ===" | tee -a "../$LOGFILE"
         diff -u <(grep -v '^#' config-before.txt | grep -v '^$' | sort) \
                <(grep -v '^#' config-after.txt | grep -v '^$' | sort) 2>&1 | tee -a "../$LOGFILE" || true
 
@@ -579,9 +603,6 @@ jobs:
         cd openwrt
         rm -rf build_dir staging_dir 2>&1 | tee -a "../$LOGFILE"
 
-    # -----------------------------------------------------------------------
-    # Build step — with pipefail to propagate make errors correctly
-    # -----------------------------------------------------------------------
     - name: Build OpenWrt (using all available cores)
       run: |
         set -o pipefail
@@ -610,9 +631,6 @@ jobs:
         echo "✅ make completed successfully." | tee -a "../$LOGFILE"
       timeout-minutes: 360
 
-    # -----------------------------------------------------------------------
-    # Verification: firmware files MUST exist. Otherwise fail the job.
-    # -----------------------------------------------------------------------
     - name: Verify firmware files were produced
       if: always()
       run: |
