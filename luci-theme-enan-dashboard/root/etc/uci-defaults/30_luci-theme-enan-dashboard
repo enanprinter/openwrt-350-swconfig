@@ -1,0 +1,28 @@
+#!/bin/sh
+# ============================================
+# A-HADDAD Dashboard Theme Setup — OpenWrt 24.10
+# ============================================
+
+# ─── 1. Register A-HADDAD theme safely ───
+uci -q batch <<-EOF >/dev/null
+    delete luci.themes.ENANDashboard
+    delete luci.themes.AHADDADDashboard
+    add_list luci.themes.AHADDADDashboard=/luci-static/enan-dashboard
+EOF
+
+# ─── 2. Set A-HADDAD Dashboard as active theme ───
+uci -q set luci.main.mediaurlbase='/luci-static/enan-dashboard'
+
+# Note: the landing page after login is resolved by the LuCI dispatcher
+# through the menu tree (firstchild). The dashboard node registered by
+# luci-theme-enan-dashboard.json has order 1, so it becomes the landing
+# page automatically. The legacy 'luci.main.index' option is not read by
+# modern LuCI and is intentionally not set.
+
+# ─── 3. Commit ───
+uci -q commit luci
+
+exit 0
+
+# ─── 4. Enable the dashboard guard (menu visibility sync + perm self-heal) ───
+/etc/init.d/enan-menu-guard enable 2>/dev/null

@@ -1,0 +1,3332 @@
+
+
+/* ============================================
+   ENAN Dashboard Theme for LuCI - OpenWrt 24.10
+   Professional Router-Style UI | Dark Mode Default
+   Version: 3.6.4
+
+   Notes:
+   * Fonts: fully offline — uses the OpenWrt/system font stack
+     (no external font services).
+   * Layout supports LTR and RTL (html[dir="rtl"]).
+   * Maintenance: this file restyles LuCI core classes. When upgrading
+     LuCI, re-verify the cbi-* and #modal_overlay sections below.
+   ============================================ */
+
+/* ─── CSS Variables ─── */
+:root {
+  --enan-bg: #0a0e1a;
+  --enan-surface: #0f1525;
+  --enan-surface-2: #131b2e;
+  --enan-surface-3: #1a2340;
+  --enan-border: #1e2a4a;
+  --enan-border-light: #2a3a5c;
+  --enan-text: #e2e8f0;
+  --enan-text-2: #94a3b8;
+  --enan-text-3: #64748b;
+  --enan-primary: #0f172a;
+  --enan-accent: #c9a227;
+  --enan-accent-2: #d4af37;
+  --enan-accent-glow: rgba(201, 162, 39, 0.2);
+  --enan-success: #10b981;
+  --enan-success-glow: rgba(16, 185, 129, 0.2);
+  --enan-warning: #f59e0b;
+  --enan-danger: #ef4444;
+  --enan-info: #3b82f6;
+  --enan-card-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3);
+  --enan-glass: rgba(15, 21, 37, 0.95);
+  --enan-topbar-bg: linear-gradient(90deg, #0a0e1a 0%, #111827 50%, #0a0e1a 100%);
+  --enan-topbar-height: 52px;
+  --enan-sidebar-width: 220px;
+  --enan-radius: 16px;
+  --enan-radius-sm: 12px;
+  --enan-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Offline system font stack (OpenWrt standard approach — no web fonts) */
+  --enan-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", "Noto Sans Arabic",
+    sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --enan-font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas,
+    "Liberation Mono", Menlo, monospace;
+}
+
+[data-theme="light"] {
+  --enan-bg: #f0f4f8;
+  --enan-surface: #ffffff;
+  --enan-surface-2: #f1f5f9;
+  --enan-surface-3: #e2e8f0;
+  --enan-border: #e2e8f0;
+  --enan-border-light: #cbd5e1;
+  --enan-text: #0f172a;
+  --enan-text-2: #475569;
+  --enan-text-3: #94a3b8;
+  --enan-card-shadow: 0 4px 20px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
+  --enan-glass: rgba(255,255,255,0.95);
+  --enan-topbar-bg: linear-gradient(90deg, #ffffff 0%, #f8fafc 50%, #ffffff 100%);
+}
+
+/* ─── Base ─── */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* LuCI may provide broad SVG rules; keep ENAN icons bounded even if the base theme is unavailable. */
+.enan-topbar svg,
+.enan-sidebar svg,
+.enan-dash-card-icon svg,
+.enan-panel-title svg,
+.enan-net-icon svg {
+  display: block !important;
+  max-width: none !important;
+  flex: 0 0 auto !important;
+}
+
+#mainmenu {
+  display: none !important;
+}
+
+#maincontent.enan-main {
+  display: block !important;
+  width: auto !important;
+  float: none !important;
+}
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0; padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--enan-bg) !important;
+  color: var(--enan-text) !important;
+  font-family: var(--enan-font) !important;
+  font-size: 14px; line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background 0.4s ease, color 0.4s ease;
+  overflow-x: hidden;
+}
+
+/* ─── Layout ─── */
+.enan-layout {
+  display: flex;
+  flex: 1 0 auto;
+}
+
+/* ─── Top Bar ─── */
+.enan-topbar {
+  background: var(--enan-topbar-bg) !important;
+  border-bottom: 1px solid var(--enan-border) !important;
+  box-shadow: 0 2px 20px rgba(0,0,0,0.3) !important;
+  height: var(--enan-topbar-height) !important;
+  padding: 0 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  position: fixed !important;
+  top: 0; left: 0; right: 0;
+  z-index: 1000 !important;
+}
+
+.enan-topbar-brand {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.enan-logo {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, var(--enan-accent), var(--enan-accent-2));
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 14px;
+  color: #0f172a;
+  box-shadow: 0 0 16px rgba(201, 162, 39, 0.4);
+}
+
+.enan-brand-name {
+  color: var(--enan-text) !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  letter-spacing: 1.2px !important;
+  text-decoration: none !important;
+}
+
+.enan-hostname {
+  color: var(--enan-accent-2) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.7px !important;
+  text-transform: uppercase !important;
+  margin-left: 4px;
+}
+
+/* ─── Top Bar Navigation (Horizontal Menu) ─── */
+.enan-topnav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  list-style: none;
+  margin: 0; padding: 0;
+}
+
+.enan-topnav-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  color: var(--enan-text-2);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: var(--enan-transition);
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+}
+
+.enan-topnav-item:hover {
+  background: var(--enan-accent-glow);
+  color: var(--enan-accent);
+}
+
+.enan-topnav-item.active {
+  background: var(--enan-accent-glow);
+  color: var(--enan-accent);
+  font-weight: 600;
+}
+
+.enan-topnav-item svg {
+  width: 14px; height: 14px;
+  stroke-width: 2.5;
+}
+
+/* ─── Top Bar Right ─── */
+.enan-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.enan-user-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: var(--enan-surface-2);
+  border: 1px solid var(--enan-border);
+  color: var(--enan-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--enan-transition);
+}
+
+.enan-user-btn:hover {
+  border-color: var(--enan-accent);
+  background: var(--enan-accent-glow);
+}
+
+.enan-user-avatar {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--enan-accent), var(--enan-accent-2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+/* ─── Sidebar (Left) ─── */
+.enan-sidebar {
+  width: var(--enan-sidebar-width);
+  background: var(--enan-surface);
+  border-right: 1px solid var(--enan-border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: var(--enan-topbar-height);
+  left: 0; bottom: 0;
+  z-index: 900;
+  transition: var(--enan-transition);
+  overflow: hidden;
+}
+
+.enan-sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 8px;
+}
+
+.enan-sidebar-nav::-webkit-scrollbar { width: 4px; }
+.enan-sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+.enan-sidebar-nav::-webkit-scrollbar-thumb { background: var(--enan-accent); border-radius: 2px; }
+
+.enan-sidebar-item {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  color: var(--enan-text-2);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  margin-bottom: 2px;
+}
+
+.enan-sidebar-item:hover {
+  background: var(--enan-surface-3);
+  color: var(--enan-text);
+}
+
+.enan-sidebar-item.active {
+  background: var(--enan-accent-glow);
+  color: var(--enan-accent);
+  font-weight: 600;
+}
+
+.enan-sidebar-item svg {
+  width: 16px; height: 16px;
+  stroke-width: 2;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.enan-sidebar-item:hover svg,
+.enan-sidebar-item.active svg {
+  opacity: 1;
+}
+
+/* Sidebar Section Headers */
+.enan-sidebar-section {
+  padding: 16px 12px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--enan-text-3);
+}
+
+/* ─── Main Content ─── */
+.enan-main {
+  flex: 1;
+  margin-left: var(--enan-sidebar-width);
+  margin-top: var(--enan-topbar-height);
+  padding: 24px;
+  max-width: calc(100% - var(--enan-sidebar-width));
+  transition: var(--enan-transition);
+}
+
+/* ─── Dashboard Header ─── */
+.enan-dash-header {
+  margin-bottom: 24px;
+}
+
+.enan-dash-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--enan-text);
+  margin: 0 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.enan-dash-meta {
+  font-size: 12px;
+  color: var(--enan-text-3);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.enan-dash-meta span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.enan-dash-meta .dot {
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--enan-text-3);
+}
+
+/* ─── Dashboard Grid ─── */
+.enan-dash-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.enan-dash-card {
+  background: var(--enan-surface);
+  border: 1px solid var(--enan-border);
+  border-radius: var(--enan-radius);
+  padding: 20px;
+  transition: var(--enan-transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.enan-dash-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--enan-accent), var(--enan-accent-2));
+  opacity: 0.6;
+}
+
+.enan-dash-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  border-color: var(--enan-border-light);
+}
+
+.enan-dash-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.enan-dash-card-icon {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--enan-surface-2);
+  color: var(--enan-accent);
+}
+
+.enan-dash-card-icon svg {
+  width: 18px; height: 18px;
+}
+
+.enan-dash-card-value {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--enan-text);
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+
+.enan-dash-card-label {
+  font-size: 12px;
+  color: var(--enan-text-3);
+  font-weight: 500;
+}
+
+/* ─── Panel Cards (System Resources, Wireless, Network) ─── */
+.enan-panel {
+  background: var(--enan-surface);
+  border: 1px solid var(--enan-border);
+  border-radius: var(--enan-radius);
+  padding: 20px;
+  margin-bottom: 16px;
+  transition: var(--enan-transition);
+}
+
+.enan-panel:hover {
+  border-color: var(--enan-border-light);
+}
+
+.enan-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.enan-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--enan-text);
+}
+
+.enan-panel-title svg {
+  width: 18px; height: 18px;
+  color: var(--enan-accent);
+}
+
+.enan-panel-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.enan-panel-badge.online {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--enan-success);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.enan-panel-badge.broadcasting {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--enan-success);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* ─── Progress Bars ─── */
+.enan-progress-row {
+  margin-bottom: 14px;
+}
+
+.enan-progress-row:last-child {
+  margin-bottom: 0;
+}
+
+.enan-progress-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.enan-progress-label-name {
+  color: var(--enan-text-2);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.enan-progress-label-value {
+  color: var(--enan-text);
+  font-weight: 700;
+  font-family: var(--enan-font-mono);
+  font-size: 12px;
+}
+
+.enan-progress-track {
+  width: 100%;
+  height: 6px;
+  background: var(--enan-surface-2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.enan-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+
+.enan-progress-fill.blue { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+.enan-progress-fill.green { background: linear-gradient(90deg, #10b981, #34d399); }
+.enan-progress-fill.gold { background: linear-gradient(90deg, var(--enan-accent), var(--enan-accent-2)); }
+.enan-progress-fill.red { background: linear-gradient(90deg, #ef4444, #f87171); }
+
+/* ─── Empty States ─── */
+.enan-empty-state {
+  padding: 18px 12px;
+  border: 1px dashed var(--enan-border-light);
+  border-radius: var(--enan-radius-sm);
+  color: var(--enan-text-3);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* ─── Wireless Cards ─── */
+.enan-wifi-item {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--enan-border);
+}
+
+.enan-wifi-item:last-child {
+  border-bottom: none;
+}
+
+.enan-wifi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.enan-wifi-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--enan-text);
+}
+
+.enan-wifi-band {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.enan-wifi-clients {
+  font-size: 12px;
+  color: var(--enan-text-3);
+  font-weight: 500;
+}
+
+.enan-wifi-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--enan-text-3);
+  font-family: var(--enan-font-mono);
+}
+
+.enan-wifi-stats span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.enan-wifi-bar {
+  margin-top: 8px;
+}
+
+/* ─── Network Interfaces ─── */
+.enan-net-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.enan-net-item {
+  background: var(--enan-surface-2);
+  border: 1px solid var(--enan-border);
+  border-radius: var(--enan-radius-sm);
+  padding: 16px 12px;
+  text-align: center;
+  transition: var(--enan-transition);
+}
+
+.enan-net-item:hover {
+  border-color: var(--enan-border-light);
+  transform: translateY(-2px);
+}
+
+.enan-net-item.up {
+  border-color: rgba(16, 185, 129, 0.3);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.1);
+}
+
+.enan-net-icon {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 8px;
+  background: var(--enan-surface-3);
+  color: var(--enan-text-3);
+}
+
+.enan-net-item.up .enan-net-icon {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--enan-success);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+}
+
+.enan-net-icon svg {
+  width: 20px; height: 20px;
+}
+
+.enan-net-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--enan-text);
+  margin-bottom: 2px;
+}
+
+.enan-net-status {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--enan-success);
+  margin-bottom: 6px;
+}
+
+.enan-net-speed {
+  font-size: 11px;
+  color: var(--enan-text-3);
+  font-family: var(--enan-font-mono);
+}
+
+.enan-net-traffic {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 6px;
+  font-size: 11px;
+  font-family: var(--enan-font-mono);
+}
+
+.enan-net-traffic .down {
+  color: #3b82f6;
+}
+
+.enan-net-traffic .up {
+  color: #10b981;
+}
+
+/* ─── Footer ─── */
+.enan-footer {
+  background: var(--enan-surface) !important;
+  border-top: 1px solid var(--enan-border) !important;
+  padding: 16px 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  font-size: 11px !important;
+  color: var(--enan-text-3) !important;
+  margin-left: var(--enan-sidebar-width);
+  transition: var(--enan-transition);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.enan-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.enan-footer-brand {
+  color: var(--enan-accent);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+.enan-footer-sep {
+  opacity: 0.4;
+}
+
+.enan-footer-meta {
+  color: var(--enan-text-3);
+  font-weight: 500;
+}
+
+/* Standard LuCI attribution in the footer */
+.enan-footer-powered {
+  color: var(--enan-text-3);
+  font-weight: 500;
+}
+.enan-footer-powered a {
+  color: var(--enan-text-2);
+  text-decoration: none;
+}
+.enan-footer-powered a:hover {
+  color: var(--enan-accent);
+  text-decoration: underline;
+}
+
+/* Theme Toggle in Footer */
+.enan-theme-toggle {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--enan-accent), var(--enan-accent-2));
+  border: none;
+  color: #0f172a;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(201, 162, 39, 0.4);
+  transition: var(--enan-transition);
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+}
+
+.enan-theme-toggle:hover {
+  transform: scale(1.1) rotate(15deg);
+  box-shadow: 0 6px 25px rgba(201, 162, 39, 0.6);
+}
+
+/* ─── Flash Messages ─── */
+.enan-flash-container { margin-bottom: 20px; }
+
+/* ─── LuCI alert messages (.alert-message is the official LuCI class) ─── */
+.alert-message {
+  border-radius: 12px;
+  padding: 14px 18px;
+  border: 1px solid var(--enan-border);
+  border-inline-start: 4px solid var(--enan-info);
+  background: var(--enan-surface);
+  box-shadow: var(--enan-card-shadow);
+  color: var(--enan-text-2);
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+.alert-message h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--enan-text);
+}
+.alert-message p { margin: 0 0 8px; line-height: 1.55; }
+.alert-message .right { text-align: end; }
+.alert-message .btn {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 7px;
+  background: var(--enan-surface-2);
+  border: 1px solid var(--enan-border-light);
+  color: var(--enan-accent);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.alert-message .btn:hover { background: var(--enan-accent-glow); }
+.alert-message.warning { border-inline-start-color: var(--enan-warning); }
+.alert-message.warning h4 { color: var(--enan-warning); }
+.alert-message.error { border-inline-start-color: var(--enan-danger); }
+.alert-message.error h4 { color: var(--enan-danger); }
+.alert-message.success { border-inline-start-color: var(--enan-success); }
+.alert-message.success h4 { color: var(--enan-success); }
+.alert-message.notice { border-inline-start-color: var(--enan-info); }
+.enan-flash-container .alert-message { margin-bottom: 10px; }
+
+/* ─── LuCI Content Styling ─── */
+.cbi-section,
+.cbi-map {
+  background: var(--enan-surface) !important;
+  border: 1px solid var(--enan-border) !important;
+  border-radius: var(--enan-radius) !important;
+  box-shadow: var(--enan-card-shadow) !important;
+  margin-bottom: 16px !important;
+  overflow: hidden !important;
+}
+
+.cbi-section legend,
+.cbi-map h2 {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: var(--enan-text) !important;
+  padding: 16px 20px !important;
+  border-bottom: 1px solid var(--enan-border) !important;
+  margin: 0 !important;
+  background: var(--enan-surface-2) !important;
+}
+
+.cbi-section-table th {
+  background: var(--enan-surface-2) !important;
+  color: var(--enan-text-3) !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  padding: 12px 14px !important;
+  border-bottom: 1px solid var(--enan-border) !important;
+}
+
+.cbi-section-table td {
+  padding: 12px 14px !important;
+  border-bottom: 1px solid var(--enan-border) !important;
+  color: var(--enan-text-2) !important;
+  font-size: 13px !important;
+}
+
+.cbi-button {
+  background: linear-gradient(135deg, var(--enan-accent), var(--enan-accent-2)) !important;
+  border: none !important;
+  color: #0f172a !important;
+  border-radius: var(--enan-radius-sm) !important;
+  padding: 10px 20px !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  transition: var(--enan-transition) !important;
+  box-shadow: 0 4px 15px rgba(201, 162, 39, 0.3) !important;
+  cursor: pointer !important;
+}
+
+.cbi-button:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 25px rgba(201, 162, 39, 0.5) !important;
+}
+
+.cbi-value-field input,
+.cbi-value-field select,
+.cbi-value-field textarea {
+  background: var(--enan-surface-2) !important;
+  border: 1px solid var(--enan-border) !important;
+  color: var(--enan-text) !important;
+  border-radius: var(--enan-radius-sm) !important;
+  padding: 10px 14px !important;
+  font-size: 13px !important;
+  font-family: inherit !important;
+  transition: var(--enan-transition) !important;
+}
+
+.cbi-value-field input:focus,
+.cbi-value-field select:focus {
+  border-color: var(--enan-accent) !important;
+  box-shadow: 0 0 0 3px var(--enan-accent-glow) !important;
+  outline: none !important;
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--enan-bg); }
+::-webkit-scrollbar-thumb { background: var(--enan-accent); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--enan-accent-2); }
+
+/* ─── Responsive ─── */
+/* ─── Hamburger button (mobile drawer) ─── */
+.enan-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  background: var(--enan-surface-2);
+  border: 1px solid var(--enan-border);
+  color: var(--enan-text);
+  cursor: pointer;
+  margin-inline-end: 4px;
+  flex: 0 0 auto;
+}
+.enan-menu-btn svg { width: 18px; height: 18px; }
+
+/* Backdrop shown behind the open sidebar drawer on small screens */
+.enan-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 1000;
+  display: none;
+}
+
+@media (max-width: 860px) {
+  /* The sidebar becomes an off-canvas drawer; the top bar gains a
+     hamburger button. The horizontal top navigation stays until 640px. */
+  .enan-menu-btn { display: flex; }
+  .enan-topbar { padding: 0 12px !important; }
+  .enan-sidebar {
+    width: 232px;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 1001;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  }
+  body.enan-sidebar-open .enan-sidebar { transform: translateX(0); }
+  body.enan-sidebar-open .enan-backdrop { display: block; }
+  .enan-main { margin-left: 0; max-width: 100%; padding: 18px; }
+  .enan-footer { margin-left: 0; }
+  .enan-topnav-item { padding: 8px 8px; font-size: 11px; }
+  .enan-topnav-item svg { width: 12px; height: 12px; }
+}
+
+@media (max-width: 640px) {
+  /* Phones: the horizontal top navigation is intentionally hidden;
+     navigation happens through the sidebar drawer. */
+  .enan-topnav { display: none; }
+  .enan-topbar { gap: 6px; }
+  .enan-topbar-brand { gap: 5px !important; }
+  .enan-brand-name { font-size: 14px !important; letter-spacing: 1px !important; }
+  .enan-hostname { display: none; }
+  .enan-user-btn { padding: 4px 6px; font-size: 10px; }
+  .enan-user-avatar { width: 20px; height: 20px; }
+  .enan-main { padding: 14px 10px; }
+  .enan-dash-title { font-size: 18px; }
+  .enan-dash-card { padding: 14px; }
+  .enan-dash-card-value { font-size: 22px; }
+  .enan-net-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .enan-net-item { padding: 12px 8px; }
+  .enan-footer { flex-direction: column; text-align: center; margin-left: 0 !important; }
+}
+
+@media (max-width: 420px) {
+  .enan-dash-grid { grid-template-columns: 1fr; }
+}
+
+/* ─── Animations ─── */
+@keyframes enanFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.enan-dash-card,
+.enan-panel {
+  animation: enanFadeIn 0.4s ease forwards;
+}
+
+.enan-dash-card:nth-child(1) { animation-delay: 0.05s; }
+.enan-dash-card:nth-child(2) { animation-delay: 0.1s; }
+.enan-dash-card:nth-child(3) { animation-delay: 0.15s; }
+.enan-dash-card:nth-child(4) { animation-delay: 0.2s; }
+
+
+/* ─── LuCI Navigation: Bootstrap dropdown + Argon collapse ─── */
+.enan-nav-loading {
+  color: var(--enan-text-3);
+  font-size: 11px;
+  padding: 8px 12px;
+}
+
+.enan-top-dropdown { position: relative; }
+.enan-menu-trigger,
+.enan-sidebar-trigger,
+.enan-submenu-trigger {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.enan-topnav-item.enan-menu-trigger {
+  border: 0;
+  color: var(--enan-text-2);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.enan-topnav-item.enan-menu-trigger:hover,
+.enan-top-dropdown.open > .enan-menu-trigger,
+.enan-topnav-item.enan-menu-trigger.active {
+  color: var(--enan-accent);
+  background: var(--enan-accent-glow);
+}
+
+.enan-nav-icon {
+  width: 15px;
+  height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 15px;
+}
+
+.enan-nav-icon svg {
+  width: 15px !important;
+  height: 15px !important;
+  stroke-width: 1.7;
+}
+
+.enan-nav-chevron {
+  width: 12px;
+  height: 12px;
+  display: inline-flex;
+  margin-left: 2px;
+  transition: transform 0.2s ease;
+}
+
+.enan-nav-chevron svg {
+  width: 12px !important;
+  height: 12px !important;
+  stroke-width: 2;
+}
+
+.enan-top-dropdown.open > .enan-menu-trigger .enan-nav-chevron,
+.enan-sidebar-group.open > .enan-sidebar-trigger .enan-nav-chevron,
+.enan-dropdown-entry.open > .enan-submenu-trigger .enan-nav-chevron {
+  transform: rotate(180deg);
+}
+
+.enan-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 230px;
+  max-width: min(320px, calc(100vw - 24px));
+  padding: 7px;
+  z-index: 10050;
+  background: var(--enan-surface) !important;
+  border: 1px solid var(--enan-border-light) !important;
+  border-radius: 10px;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.42);
+}
+
+.enan-top-dropdown.open > .enan-dropdown-menu { display: block; animation: enanDropdownIn 0.16s ease-out; }
+.enan-dropdown-entry { position: relative; }
+.enan-dropdown-item {
+  width: 100%;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--enan-text-2) !important;
+  text-decoration: none !important;
+  text-align: left;
+  font-size: 12px;
+  cursor: pointer;
+}
+.enan-dropdown-item:hover,
+.enan-dropdown-entry.open > .enan-dropdown-item {
+  color: var(--enan-accent) !important;
+  background: var(--enan-accent-glow) !important;
+}
+.enan-dropdown-entry > .enan-submenu { display: none; }
+.enan-dropdown-entry.open > .enan-submenu {
+  display: block;
+  position: absolute;
+  left: calc(100% + 6px);
+  top: -7px;
+  min-width: 220px;
+  padding: 7px;
+  background: var(--enan-surface) !important;
+  border: 1px solid var(--enan-border-light) !important;
+  border-radius: 10px;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.42);
+}
+
+.enan-sidebar-group { width: 100%; }
+.enan-sidebar-trigger {
+  width: 100%;
+  border: 0 !important;
+  background: transparent !important;
+  text-align: left;
+  position: relative;
+}
+.enan-sidebar-trigger .enan-nav-chevron { margin-left: auto; }
+.enan-sidebar-submenu {
+  display: none;
+  margin: 2px 0 7px 22px;
+  padding-left: 10px;
+  border-left: 1px solid var(--enan-border-light);
+}
+.enan-sidebar-group.open > .enan-sidebar-submenu { display: block; animation: enanCollapseIn 0.18s ease-out; }
+.enan-sidebar-subitem {
+  display: block;
+  padding: 7px 10px;
+  color: var(--enan-text-3) !important;
+  font-size: 12px;
+  text-decoration: none !important;
+  border-radius: 6px;
+  transition: var(--enan-transition);
+}
+.enan-sidebar-subitem:hover,
+.enan-sidebar-subitem.active {
+  color: var(--enan-accent) !important;
+  background: var(--enan-accent-glow) !important;
+}
+
+/* ─── LuCI page tabs ─── */
+.enan-tabmenu,
+.cbi-map ul.cbi-tabmenu,
+.cbi-section ul.cbi-tabmenu {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  list-style: none;
+  margin: 0 0 16px !important;
+  padding: 5px !important;
+  background: var(--enan-surface) !important;
+  border: 1px solid var(--enan-border) !important;
+  border-radius: var(--enan-radius-sm);
+  box-shadow: var(--enan-card-shadow);
+}
+
+.enan-tabmenu > ul.cbi-tabmenu,
+.enan-tabmenu .cbi-tabmenu,
+.cbi-map ul.cbi-tabmenu ul.cbi-tabmenu,
+.cbi-section ul.cbi-tabmenu ul.cbi-tabmenu {
+  width: 100%;
+  display: flex;
+  gap: 4px;
+  list-style: none;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.cbi-tabmenu > li,
+.cbi-tabmenu > li.cbi-tab,
+.cbi-tabmenu > li:hover {
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+.cbi-tabmenu > li > a {
+  display: block;
+  padding: 9px 14px !important;
+  color: var(--enan-text-3) !important;
+  border: 0 !important;
+  border-radius: 7px;
+  text-decoration: none !important;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cbi-tabmenu > li > a:hover { color: var(--enan-accent) !important; background: var(--enan-accent-glow) !important; }
+.cbi-tabmenu > li.cbi-tab > a,
+.cbi-tabmenu > li.active > a {
+  color: var(--enan-accent) !important;
+  background: var(--enan-accent-glow) !important;
+  box-shadow: inset 0 -2px 0 var(--enan-accent);
+}
+
+/* ─── LuCI maps, fields, tables and form controls ─── */
+#view,
+#maincontent > .cbi-map,
+#maincontent > .cbi-section { color: var(--enan-text-2); }
+.cbi-map,
+.cbi-section { width: 100%; max-width: 100%; }
+.cbi-map > .cbi-map-descr,
+.cbi-section > .cbi-section-descr {
+  margin: 0 !important;
+  padding: 14px 20px !important;
+  color: var(--enan-text-3) !important;
+  background: var(--enan-surface) !important;
+  border-bottom: 1px solid var(--enan-border) !important;
+  font-size: 12px !important;
+  line-height: 1.65;
+}
+.cbi-section > h3,
+.cbi-section > legend,
+.cbi-map > h2 {
+  line-height: 1.4;
+}
+.cbi-value {
+  display: grid;
+  grid-template-columns: minmax(190px, 29%) minmax(0, 1fr) !important;
+  align-items: start;
+  column-gap: 22px;
+  padding: 14px 20px !important;
+  border-bottom: 1px solid var(--enan-border) !important;
+  min-height: 52px;
+}
+.cbi-value:last-child { border-bottom: 0 !important; }
+.cbi-value-title {
+  width: auto !important;
+  padding: 8px 0 !important;
+  color: var(--enan-text-2) !important;
+  font-size: 12px !important;
+  font-weight: 600;
+  text-align: left !important;
+  line-height: 1.5;
+}
+.cbi-value-field {
+  width: auto !important;
+  min-width: 0;
+  padding: 0 !important;
+  color: var(--enan-text-2) !important;
+}
+.cbi-value-description,
+.cbi-value-helpicon {
+  color: var(--enan-text-3) !important;
+  font-size: 11px !important;
+  line-height: 1.55;
+}
+.cbi-value-description { margin-top: 5px; }
+.cbi-value-field textarea,
+.cbi-value-field .cbi-value-description { width: 100%; max-width: 620px; }
+.cbi-value-field input:not([type="checkbox"]):not([type="radio"]),
+.cbi-value-field select,
+.cbi-input-select,
+.cbi-input-text {
+  width: auto !important;
+  min-width: 200px;
+  max-width: 620px;
+  min-height: 38px;
+  background: var(--enan-surface-2) !important;
+  border: 1px solid var(--enan-border-light) !important;
+  border-radius: 8px !important;
+  color: var(--enan-text) !important;
+  padding: 9px 12px !important;
+  font: inherit;
+  font-size: 12px !important;
+  outline: none;
+  transition: var(--enan-transition);
+}
+.cbi-value-field textarea { min-height: 110px; resize: vertical; }
+.cbi-value-field input:focus,
+.cbi-value-field select:focus,
+.cbi-value-field textarea:focus {
+  border-color: var(--enan-accent) !important;
+  box-shadow: 0 0 0 3px var(--enan-accent-glow) !important;
+}
+.cbi-value-field input[type="checkbox"],
+.cbi-value-field input[type="radio"] { accent-color: var(--enan-accent); }
+.cbi-section-table,
+.table { width: 100%; border-collapse: collapse; color: var(--enan-text-2); }
+.cbi-section-table tr:last-child td { border-bottom: 0 !important; }
+.cbi-section-table td .cbi-button { margin: 2px; }
+
+/* ─── Functional button colors ─── */
+.cbi-button,
+.cbi-button-save,
+.cbi-button-apply,
+.cbi-button-action {
+  min-height: 34px;
+  padding: 8px 15px !important;
+  border-radius: 7px !important;
+  border: 1px solid transparent !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  transition: var(--enan-transition) !important;
+}
+.cbi-button-save,
+.cbi-button-apply,
+.cbi-button-action,
+.cbi-button-add {
+  background: linear-gradient(135deg, #c9a227, #e2bd3c) !important;
+  border-color: #e2bd3c !important;
+  color: #0b1020 !important;
+}
+.cbi-button-reset,
+.cbi-button-neutral,
+.cbi-button-link,
+.cbi-button-up,
+.cbi-button-down {
+  background: var(--enan-surface-2) !important;
+  border-color: var(--enan-border-light) !important;
+  color: var(--enan-text-2) !important;
+}
+.cbi-button-remove,
+.cbi-button-delete,
+.cbi-button-negative {
+  background: rgba(239, 68, 68, 0.14) !important;
+  border-color: rgba(239, 68, 68, 0.38) !important;
+  color: #f87171 !important;
+}
+.cbi-button:hover,
+.cbi-button-save:hover,
+.cbi-button-apply:hover,
+.cbi-button-action:hover { transform: translateY(-1px); filter: brightness(1.08); }
+.cbi-button-container,
+.cbi-page-actions,
+.cbi-section-create { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 16px 20px !important; }
+
+@keyframes enanDropdownIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes enanCollapseIn { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 800px; } }
+
+@media (max-width: 700px) {
+  .enan-dropdown-entry.open > .enan-submenu { left: auto; right: 0; top: calc(100% + 2px); }
+  .cbi-value { grid-template-columns: 1fr !important; gap: 4px; padding: 12px 14px !important; }
+  .cbi-value-title { padding-bottom: 0 !important; }
+  .cbi-value-field input:not([type="checkbox"]):not([type="radio"]),
+  .cbi-value-field select,
+  .cbi-value-field textarea { max-width: none; }
+  .cbi-tabmenu > li > a { padding: 8px 10px !important; font-size: 11px; }
+}
+
+
+/* Nested sidebar groups */
+.enan-sidebar-nested { width: 100%; }
+.enan-sidebar-nested-trigger {
+  width: 100%;
+  background: transparent !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.enan-sidebar-nested-trigger .enan-nav-chevron { margin-left: auto; }
+.enan-sidebar-submenu-nested {
+  margin-left: 12px;
+  padding-left: 9px;
+}
+.enan-sidebar-nested.open > .enan-sidebar-submenu-nested { display: block; }
+.enan-sidebar-nested:not(.open) > .enan-sidebar-submenu-nested { display: none; }
+
+
+/* LuCI CBI panes: show only the active tab, like Bootstrap tab-content */
+[data-tab-title]:not([data-tab-active="true"]) {
+  visibility: hidden !important;
+  position: relative !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  border: 0 !important;
+}
+[data-tab-title][data-tab-active="true"] {
+  visibility: visible !important;
+  position: relative !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+.cbi-tab-disabled > a {
+  color: var(--enan-text-3) !important;
+  background: transparent !important;
+}
+.cbi-tab > a {
+  color: var(--enan-accent) !important;
+  background: var(--enan-accent-glow) !important;
+}
+
+
+.enan-net-item:not(.up) {
+  border-color: var(--enan-border) !important;
+  box-shadow: none !important;
+}
+.enan-net-item:not(.up) .enan-net-status {
+  color: var(--enan-text-3) !important;
+}
+.enan-net-item:not(.up) .enan-net-icon {
+  background: var(--enan-surface-3) !important;
+  color: var(--enan-text-3) !important;
+  box-shadow: none !important;
+}
+
+
+/* LuCI modal overlay: Scan/Edit dialogs must float above the page */
+body.modal-overlay-active {
+  overflow: hidden !important;
+  height: 100vh !important;
+}
+#modal_overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 11000 !important;
+  overflow: auto !important;
+  padding: 5vh 16px !important;
+  box-sizing: border-box !important;
+  background: rgba(2, 6, 23, 0.78) !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transition: opacity 0.16s ease, visibility 0.16s ease !important;
+}
+body.modal-overlay-active #modal_overlay {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+#modal_overlay > .modal,
+#modal_overlay > .cbi-modal,
+#modal_overlay > .uci-dialog,
+#modal_overlay .modal.uci-dialog,
+#modal_overlay .modal.cbi-modal {
+  width: min(760px, 100%) !important;
+  max-width: 760px !important;
+  min-width: 0 !important;
+  max-height: 90vh !important;
+  overflow: auto !important;
+  margin: 0 auto !important;
+  padding: 22px !important;
+  box-sizing: border-box !important;
+  color: var(--enan-text) !important;
+  background: var(--enan-surface) !important;
+  border: 1px solid var(--enan-border-light) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6) !important;
+}
+#modal_overlay .modal > h2,
+#modal_overlay .modal > h3,
+#modal_overlay .cbi-modal > h2,
+#modal_overlay .cbi-modal > h3 {
+  margin: 0 0 16px !important;
+  color: var(--enan-text) !important;
+  font-size: 17px !important;
+}
+#modal_overlay .modal .button-row,
+#modal_overlay .cbi-modal .button-row,
+#modal_overlay .uci-dialog .button-row {
+  display: flex !important;
+  justify-content: flex-end !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-top: 18px !important;
+}
+#modal_overlay .modal input,
+#modal_overlay .modal select,
+#modal_overlay .modal textarea,
+#modal_overlay .cbi-modal input,
+#modal_overlay .cbi-modal select,
+#modal_overlay .cbi-modal textarea {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* LuCI dropdowns such as Save & Apply / Apply unchecked */
+.cbi-page-actions {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  padding: 16px 20px !important;
+  background: var(--enan-surface) !important;
+  border-top: 1px solid var(--enan-border) !important;
+  border-radius: 0 0 var(--enan-radius) var(--enan-radius) !important;
+}
+.cbi-page-actions .cbi-dropdown.cbi-button,
+.cbi-page-actions .cbi-dropdown.btn {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: stretch !important;
+  width: auto !important;
+  min-height: 36px !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  background: linear-gradient(135deg, #c9a227, #e2bd3c) !important;
+  border: 1px solid #e2bd3c !important;
+  border-radius: 8px !important;
+  color: #0b1020 !important;
+}
+.cbi-page-actions .cbi-dropdown.cbi-button > .open,
+.cbi-page-actions .cbi-dropdown.btn > .open {
+  min-width: 32px !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+  border-left: 1px solid rgba(11, 16, 32, 0.35) !important;
+  cursor: pointer;
+}
+.cbi-page-actions .cbi-dropdown.cbi-button > ul.preview,
+.cbi-page-actions .cbi-dropdown.btn > ul.preview {
+  display: flex !important;
+  min-height: 34px;
+  align-items: center;
+  margin: 0 !important;
+  padding: 0 14px !important;
+  list-style: none;
+  background: transparent !important;
+  border: 0 !important;
+}
+.cbi-page-actions .cbi-dropdown > ul.dropdown {
+  display: none !important;
+  position: absolute !important;
+  left: auto !important;
+  right: 0 !important;
+  bottom: auto;
+  min-width: 220px !important;
+  max-height: 280px !important;
+  overflow: auto !important;
+  padding: 6px !important;
+  margin: 0 !important;
+  list-style: none !important;
+  background: var(--enan-surface) !important;
+  border: 1px solid var(--enan-border-light) !important;
+  border-radius: 9px !important;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.55) !important;
+}
+.cbi-page-actions .cbi-dropdown[open] > ul.dropdown { display: block !important; }
+.cbi-page-actions .cbi-dropdown > ul.dropdown > li {
+  display: flex !important;
+  align-items: center;
+  min-height: 34px;
+  padding: 8px 10px !important;
+  color: var(--enan-text-2) !important;
+  border-bottom: 1px solid var(--enan-border) !important;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.cbi-page-actions .cbi-dropdown > ul.dropdown > li:last-child { border-bottom: 0 !important; }
+.cbi-page-actions .cbi-dropdown > ul.dropdown > li:hover,
+.cbi-page-actions .cbi-dropdown > ul.dropdown > li[selected] {
+  color: var(--enan-accent) !important;
+  background: var(--enan-accent-glow) !important;
+}
+.cbi-page-actions .cbi-button-save,
+.cbi-page-actions .cbi-button-apply {
+  margin: 0 !important;
+}
+
+/* Edit / Scan controls stay compact and invoke LuCI's modal handlers */
+.cbi-section-actions .cbi-button-find,
+.cbi-section-actions .cbi-button-edit,
+.cbi-section-actions .cbi-button-add,
+.cbi-section-actions .cbi-button-remove {
+  min-height: 32px !important;
+  padding: 7px 12px !important;
+  border-radius: 7px !important;
+}
+.cbi-button-find,
+.cbi-button-edit { background: var(--enan-accent-glow) !important; color: var(--enan-accent) !important; border-color: rgba(226, 189, 60, 0.4) !important; }
+
+
+/* =========================================================
+   ENAN final LuCI parity layer: dropdowns, forms, interfaces,
+   Save/Apply, UCI change indicator and Facebook signature
+   ========================================================= */
+
+/* All LuCI dropdowns, including Device selectors, open below the control. */
+.cbi-dropdown {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: stretch !important;
+  vertical-align: middle !important;
+  width: auto !important;
+  min-width: 190px;
+  max-width: 100%;
+  min-height: 38px !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  border: 1px solid var(--enan-border-light) !important;
+  border-radius: 8px !important;
+  background: var(--enan-surface-2) !important;
+  color: var(--enan-text) !important;
+  z-index: 20;
+}
+.cbi-dropdown > ul.preview {
+  display: flex !important;
+  align-items: center !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 12px !important;
+  list-style: none !important;
+  background: transparent !important;
+  border: 0 !important;
+  overflow: hidden !important;
+}
+.cbi-dropdown > ul.preview > li {
+  display: block !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  color: inherit !important;
+}
+.cbi-dropdown > .open {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 38px !important;
+  min-height: 36px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-left: 1px solid var(--enan-border-light) !important;
+  color: var(--enan-text-2) !important;
+  cursor: pointer !important;
+}
+.cbi-dropdown > .open::after {
+  content: '▾';
+  font-size: 12px;
+  line-height: 1;
+}
+.cbi-dropdown > ul.dropdown {
+  display: none !important;
+  position: absolute !important;
+  top: auto;
+  bottom: auto;
+  left: 0;
+  right: auto;
+  z-index: 12000 !important;
+  width: max-content !important;
+  min-width: 100% !important;
+  max-width: min(480px, calc(100vw - 32px)) !important;
+  max-height: 320px !important;
+  overflow-y: auto !important;
+  margin: 0 !important;
+  padding: 6px !important;
+  list-style: none !important;
+  background: var(--enan-surface) !important;
+  border: 1px solid var(--enan-border-light) !important;
+  border-radius: 9px !important;
+  box-shadow: 0 18px 48px rgba(0,0,0,.48) !important;
+}
+.cbi-dropdown[open] { z-index: 12001 !important; }
+.cbi-dropdown[open] > ul.dropdown { display: block !important; animation: enanDropdownIn .14s ease both; }
+.cbi-dropdown > ul.dropdown > li {
+  display: flex !important;
+  align-items: center !important;
+  min-height: 34px !important;
+  margin: 0 !important;
+  padding: 8px 10px !important;
+  color: var(--enan-text-2) !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--enan-border) !important;
+  border-radius: 6px !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+}
+.cbi-dropdown > ul.dropdown > li:last-child { border-bottom: 0 !important; }
+.cbi-dropdown > ul.dropdown > li:hover,
+.cbi-dropdown > ul.dropdown > li[selected] {
+  color: var(--enan-accent) !important;
+  background: var(--enan-accent-glow) !important;
+}
+
+/* Device and other CBI selectors are allowed to use the full form width. */
+.cbi-value-field > .cbi-dropdown {
+  width: fit-content !important;
+  min-width: 190px;
+  max-width: 620px;
+}
+.cbi-value-field > select,
+.cbi-value-field > .cbi-input-select {
+  width: auto !important;
+  min-width: 190px;
+  max-width: 100%;
+}
+.cbi-map,
+.cbi-section,
+.cbi-map > form,
+.cbi-section > form,
+.cbi-map > .cbi-section,
+.cbi-section-node { max-width: none !important; }
+
+/* Wider, scrollable Wireless add/edit forms, matching Bootstrap's roomy layout. */
+body[class*="node-admin-network-wireless"] .cbi-map,
+body[class*="node-admin-network-wireless"] .cbi-section,
+body[class*="node-admin-network-wireless"] .cbi-value-field,
+body[class*="node-admin-network-wireless"] .cbi-map > form { width: 100% !important; }
+body[class*="node-admin-network-wireless"] .cbi-value {
+  grid-template-columns: minmax(210px, 25%) minmax(0, 1fr) !important;
+  padding-left: 24px !important;
+  padding-right: 24px !important;
+}
+body[class*="node-admin-network-wireless"] .cbi-value-field textarea {
+  width: 100% !important;
+  max-width: 860px !important;
+}
+body[class*="node-admin-network-wireless"] .cbi-value-field input:not([type="checkbox"]):not([type="radio"]),
+body[class*="node-admin-network-wireless"] .cbi-value-field select,
+body[class*="node-admin-network-wireless"] .cbi-value-field .cbi-dropdown {
+  width: auto !important;
+  min-width: 200px;
+  max-width: 860px !important;
+}
+body[class*="node-admin-network-wireless"] .cbi-section-table,
+body[class*="node-admin-network-wireless"] .table { min-width: 0; max-width: 100%; }
+
+/* Interfaces: one clean row per interface; details are shown by LuCI tooltip on hover. */
+.ifacebox,
+.ifacebox-row,
+.network-interface,
+.cbi-section-table tr {
+  position: relative;
+  border-bottom: 1px solid var(--enan-border) !important;
+}
+.ifacebox {
+  display: inline-flex !important;
+  flex-direction: column;
+  align-items: stretch;
+  width: auto !important;
+  min-width: 180px;
+  max-width: 100% !important;
+  min-height: 72px !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 1px solid var(--enan-border) !important;
+  border-radius: 8px !important;
+  text-align: center !important;
+  overflow: visible !important;
+  vertical-align: top;
+}
+.ifacebox-head {
+  display: block !important;
+  padding: 4px 10px !important;
+  background: var(--enan-surface-3) !important;
+  border-bottom: 1px solid var(--enan-border) !important;
+  color: var(--enan-text) !important;
+  font-weight: 600;
+  font-size: 12px;
+}
+.ifacebox:hover,
+.network-interface:hover { background: var(--enan-accent-glow) !important; }
+.ifacebox .ifacebox-footer { background: transparent !important; border: 0 !important; }
+.ifacebox img,
+.ifacebox svg,
+.ifacebadge img,
+.ifacebadge svg {
+  width: 24px !important;
+  height: 24px !important;
+  max-width: 24px !important;
+  max-height: 24px !important;
+  object-fit: contain !important;
+}
+.ifacebox-body {
+  display: block !important;
+  padding: 8px 6px !important;
+  background: transparent !important;
+  border: 0 !important;
+  text-align: center;
+}
+.ifacebox-body .cbi-tooltip-container {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+.ifacebox-body small {
+  display: block;
+  color: var(--enan-text-3);
+  font-size: 11px;
+  margin-top: 4px;
+}
+.cbi-tooltip,
+.ifacebox .cbi-tooltip,
+.ifacebox [data-tooltip] { cursor: help !important; }
+
+/* Real LuCI indicator: Unsaved Changes appears in the header and opens its modal. */
+header [data-indicator] {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 30px !important;
+  margin: 0 8px !important;
+  padding: 5px 11px !important;
+  border: 1px solid rgba(226,189,60,.55) !important;
+  border-radius: 999px !important;
+  background: rgba(226,189,60,.16) !important;
+  color: var(--enan-accent) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  box-shadow: 0 3px 14px rgba(0,0,0,.16) !important;
+}
+header [data-indicator][data-clickable] { cursor: pointer !important; }
+header [data-indicator][data-style="active"]::before { content: '●'; margin-right: 6px; color: var(--enan-accent); }
+header [data-indicator][data-style="inactive"] { opacity: .65; }
+
+/* LuCI combo button: keep Save & Apply and the arrow as two clickable areas. */
+.cbi-page-actions .cbi-dropdown.cbi-button,
+.cbi-page-actions .cbi-dropdown.btn {
+  min-width: 210px !important;
+  overflow: visible !important;
+}
+.cbi-page-actions .cbi-dropdown > .open { flex-basis: 40px !important; }
+.cbi-page-actions .cbi-dropdown > ul.dropdown {
+  top: auto;
+  bottom: auto;
+  left: auto;
+  right: 0;
+}
+
+/* Facebook signature in the footer. */
+.enan-footer-signature {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 9px !important;
+  color: inherit !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+}
+.enan-footer-signature:hover .enan-footer-brand,
+.enan-footer-signature:hover .enan-footer-meta { color: var(--enan-accent) !important; }
+.enan-footer-facebook {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 50% !important;
+  background: #1877f2 !important;
+  color: #fff !important;
+  font: 700 17px/1 Arial, sans-serif !important;
+}
+.enan-footer-signature-copy { display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+
+@media (max-width: 700px) {
+  .cbi-dropdown { min-width: 160px; }
+  .ifacebox { padding-left: 12px !important; padding-right: 12px !important; }
+  body[class*="node-admin-network-wireless"] .cbi-value { grid-template-columns: 1fr !important; }
+  .enan-footer-signature-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+  .enan-footer-sep { display: none; }
+}
+
+
+.enan-header-indicators {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  min-height: 30px !important;
+}
+.enan-header-indicators:empty { display: none !important; }
+
+/* Bootstrap-like hover detail popup for physical interfaces. */
+.ifacebox { overflow: visible !important; }
+.ifacebox .cbi-tooltip {
+  position: absolute !important;
+  left: 52px !important;
+  top: calc(100% - 2px) !important;
+  z-index: 12100 !important;
+  display: block !important;
+  width: max-content !important;
+  max-width: min(420px, calc(100vw - 48px)) !important;
+  max-height: 260px !important;
+  overflow: auto !important;
+  padding: 10px 12px !important;
+  border: 1px solid var(--enan-border-light) !important;
+  border-radius: 8px !important;
+  background: var(--enan-surface) !important;
+  color: var(--enan-text-2) !important;
+  box-shadow: 0 14px 32px rgba(0,0,0,.4) !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transform: translateY(-4px) !important;
+  transition: opacity .14s ease, transform .14s ease, visibility .14s ease !important;
+}
+.ifacebox:hover .cbi-tooltip,
+.ifacebox:focus-within .cbi-tooltip {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0) !important;
+}
+
+
+/* =========================================================
+   ENAN final parity correction: one form frame + native LuCI
+   dropdown geometry. Bootstrap keeps the closed value list
+   hidden and only exposes selected items until [open].
+   ========================================================= */
+
+/* Remove the visual frame from the map shell; top-level sections are the cards. */
+.cbi-map {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin: 0 0 16px !important;
+  overflow: visible !important;
+}
+.cbi-map > .cbi-section {
+  background: var(--enan-surface) !important;
+  border: 1px solid var(--enan-border) !important;
+  border-radius: var(--enan-radius) !important;
+  box-shadow: var(--enan-card-shadow) !important;
+  margin: 0 0 16px !important;
+  overflow: visible !important;
+}
+.cbi-map > .cbi-section > .cbi-section-node,
+.cbi-map > .cbi-section > .cbi-section-node-tabbed,
+.cbi-map > .cbi-section > .cbi-section-node > .cbi-section,
+.cbi-map > .cbi-section > .cbi-section-node-tabbed > .cbi-section {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+/* SectionValue/NamedSection wrappers inside Wireless and Flash are layout shells, not cards. */
+.cbi-map .cbi-section .cbi-section-node .cbi-section,
+.cbi-map .cbi-section .cbi-section-node-tabbed .cbi-section {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+.cbi-map .cbi-section .cbi-section-node .cbi-section > legend,
+.cbi-map .cbi-section .cbi-section-node-tabbed .cbi-section > legend {
+  background: transparent !important;
+}
+
+/* Correct closed cbi-dropdown state: show the selected display item only. */
+.cbi-dropdown > ul:not(.preview):not(.dropdown) {
+  display: flex !important;
+  align-items: center !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  width: auto !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+  list-style: none !important;
+  overflow: hidden !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+.cbi-dropdown > ul:not(.preview):not(.dropdown) > li {
+  display: none !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  color: inherit !important;
+}
+.cbi-dropdown > ul:not(.preview):not(.dropdown) > li[display] {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  align-items: center !important;
+}
+.cbi-dropdown > ul.preview { display: none !important; }
+.cbi-dropdown[open] > ul.preview { display: flex !important; }
+.cbi-dropdown[open] > ul.dropdown {
+  display: block !important;
+  position: absolute !important;
+  top: auto;
+  bottom: auto;
+  left: 0;
+  right: auto;
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: min(620px, calc(100vw - 32px)) !important;
+  max-height: min(360px, 52vh) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  margin-top: 4px !important;
+  padding: 6px !important;
+  background: var(--enan-surface) !important;
+  border: 1px solid var(--enan-border-light) !important;
+  border-radius: 9px !important;
+  box-shadow: 0 18px 44px rgba(0,0,0,.5) !important;
+}
+.cbi-dropdown[open] > ul.dropdown > li {
+  display: flex !important;
+  align-items: center !important;
+  min-height: 34px !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 7px 9px !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  color: var(--enan-text-2) !important;
+  border-bottom: 1px solid var(--enan-border) !important;
+  border-radius: 6px !important;
+}
+.cbi-dropdown[open] > ul.dropdown > li:last-child { border-bottom: 0 !important; }
+.cbi-dropdown[open] > ul.dropdown > li:hover,
+.cbi-dropdown[open] > ul.dropdown > li[selected] {
+  color: var(--enan-accent) !important;
+  background: var(--enan-accent-glow) !important;
+}
+.cbi-value-field { position: relative !important; overflow: visible !important; }
+.cbi-value-field .cbi-dropdown {
+  width: fit-content !important;
+  min-width: 190px;
+  max-width: 620px;
+}
+.cbi-value-field .cbi-dropdown[open] { z-index: 12001 !important; }
+
+/* Keep the visual split button intact while hiding the unselected action list. */
+.cbi-page-actions .cbi-dropdown > ul:not(.preview):not(.dropdown) {
+  display: flex !important;
+  min-height: 34px !important;
+  padding: 0 14px !important;
+  margin: 0 !important;
+}
+.cbi-page-actions .cbi-dropdown > ul:not(.preview):not(.dropdown) > li { display: none !important; }
+.cbi-page-actions .cbi-dropdown > ul:not(.preview):not(.dropdown) > li[display] {
+  display: flex !important;
+  align-items: center !important;
+}
+.cbi-page-actions .cbi-dropdown > ul.preview { display: none !important; }
+.cbi-page-actions .cbi-dropdown[open] > ul.preview { display: flex !important; }
+.cbi-page-actions .cbi-dropdown[open] > ul.dropdown {
+  top: auto;
+  bottom: auto;
+  left: auto;
+  right: 0;
+  width: 230px !important;
+  min-width: 230px !important;
+}
+.cbi-page-actions .cbi-dropdown > .open {
+  display: flex !important;
+  flex: 0 0 40px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-left: 1px solid rgba(11,16,32,.35) !important;
+}
+
+/* Wireless and Flash retain one spacious outer card with full-width inner content. */
+body[class*="node-admin-network-wireless"] .cbi-map,
+body[class*="node-admin-system-flash"] .cbi-map,
+body[class*="node-admin-system-backup"] .cbi-map {
+  padding: 0 !important;
+}
+body[class*="node-admin-network-wireless"] .cbi-map > .cbi-section,
+body[class*="node-admin-system-flash"] .cbi-map > .cbi-section,
+body[class*="node-admin-system-backup"] .cbi-map > .cbi-section {
+  width: 100% !important;
+}
+body[class*="node-admin-network-wireless"] .cbi-section-node,
+body[class*="node-admin-system-flash"] .cbi-section-node,
+body[class*="node-admin-system-backup"] .cbi-section-node {
+  width: 100% !important;
+}
+body[class*="node-admin-network-wireless"] .cbi-value,
+body[class*="node-admin-system-flash"] .cbi-value,
+body[class*="node-admin-system-backup"] .cbi-value {
+  width: 100% !important;
+}
+
+
+/* Wireless add/edit dialogs: the modal is the outer frame; nested maps and
+   SectionValue shells must not create additional narrow cards. */
+#modal_overlay > .modal,
+#modal_overlay > .cbi-modal,
+#modal_overlay > .uci-dialog,
+#modal_overlay .modal.uci-dialog,
+#modal_overlay .modal.cbi-modal {
+  width: min(1000px, calc(100vw - 32px)) !important;
+  max-width: 1000px !important;
+  max-height: 92vh !important;
+  padding: 24px !important;
+}
+#modal_overlay .cbi-map,
+#modal_overlay .cbi-section,
+#modal_overlay .cbi-section-node,
+#modal_overlay .cbi-section-node-tabbed,
+#modal_overlay .cbi-section .cbi-section {
+  max-width: none !important;
+  width: 100% !important;
+  overflow: visible !important;
+}
+#modal_overlay .cbi-map,
+#modal_overlay .cbi-section-node,
+#modal_overlay .cbi-section-node-tabbed {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+#modal_overlay .cbi-map > .cbi-section {
+  background: var(--enan-surface) !important;
+  border: 1px solid var(--enan-border) !important;
+  border-radius: var(--enan-radius) !important;
+  box-shadow: var(--enan-card-shadow) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+#modal_overlay .cbi-section .cbi-section,
+#modal_overlay .cbi-section .cbi-section-node > .cbi-section,
+#modal_overlay .cbi-section .cbi-section-node-tabbed > .cbi-section {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+}
+#modal_overlay .cbi-section .cbi-value {
+  grid-template-columns: minmax(220px, 28%) minmax(0, 1fr) !important;
+  padding-left: 24px !important;
+  padding-right: 24px !important;
+}
+#modal_overlay .cbi-tabmenu {
+  width: 100% !important;
+  margin-bottom: 0 !important;
+}
+
+
+/* Native LuCI clones the source list into ul.preview on open. Keep only
+   items carrying display (selected values) in that compact preview strip. */
+.cbi-dropdown > ul.preview > li:not([display]) { display: none !important; }
+.cbi-dropdown > ul.preview > li[display] {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  align-items: center !important;
+}
+
+
+/* Wireless form parity: Bootstrap lets the modal form fields consume the
+   available content width; LuCI dependencies own visibility via .hidden. */
+.cbi-value.hidden,
+.cbi-value[hidden],
+.cbi-value[style*="display: none"],
+.cbi-value[style*="display:none"] {
+  display: none !important;
+}
+#modal_overlay > .modal.cbi-modal,
+#modal_overlay > .modal.uci-dialog,
+#modal_overlay > .modal {
+  width: min(1100px, calc(100vw - 24px)) !important;
+  max-width: 1100px !important;
+  min-width: min(270px, calc(100vw - 24px)) !important;
+}
+#modal_overlay .cbi-value-field,
+#modal_overlay .cbi-value-field input:not([type="checkbox"]):not([type="radio"]),
+#modal_overlay .cbi-value-field select,
+#modal_overlay .cbi-value-field .cbi-dropdown {
+  width: fit-content !important;
+  min-width: 200px;
+  max-width: 620px;
+}
+#modal_overlay .cbi-value-field .cbi-input-select,
+#modal_overlay .cbi-value-field .cbi-input-text {
+  width: auto !important;
+  min-width: 200px;
+  max-width: 620px;
+}
+#modal_overlay .cbi-value-field textarea {
+  width: 100% !important;
+  max-width: 620px !important;
+}
+#modal_overlay .cbi-value {
+  grid-template-columns: minmax(210px, 24%) minmax(0, 1fr) !important;
+}
+#modal_overlay .cbi-section-node-tabbed,
+#modal_overlay .cbi-section-node-tabbed > *,
+#modal_overlay .cbi-section-node-tabbed .cbi-section,
+#modal_overlay .cbi-section-node-tabbed .cbi-section-node {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+
+/* SectionValue rows in Wireless contain a complete nested form. Bootstrap
+   gives that nested form the full modal width instead of squeezing it into
+   the field column of the outer row. */
+#modal_overlay .cbi-value:has(> .cbi-value-field > .cbi-section) {
+  display: block !important;
+  padding: 0 !important;
+}
+#modal_overlay .cbi-value:has(> .cbi-value-field > .cbi-section) > .cbi-value-title {
+  display: block !important;
+  width: 100% !important;
+  padding: 16px 24px 12px !important;
+  border-bottom: 1px solid var(--enan-border) !important;
+  background: var(--enan-surface-2) !important;
+}
+#modal_overlay .cbi-value:has(> .cbi-value-field > .cbi-section) > .cbi-value-field {
+  display: block !important;
+  width: 100% !important;
+  padding: 0 !important;
+}
+#modal_overlay .cbi-value:has(> .cbi-value-field > .cbi-section) > .cbi-value-field > .cbi-section {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+
+
+/* Explicit fallback for routers/browsers without reliable :has() support. */
+#modal_overlay .cbi-value.enan-section-value {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+}
+#modal_overlay .cbi-value.enan-section-value > .cbi-value-title {
+  display: block !important;
+  width: 100% !important;
+  padding: 16px 24px 12px !important;
+  border-bottom: 1px solid var(--enan-border) !important;
+  background: var(--enan-surface-2) !important;
+}
+#modal_overlay .cbi-value.enan-section-value > .cbi-value-field {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  padding: 0 !important;
+}
+#modal_overlay .cbi-value.enan-section-value > .cbi-value-field > .cbi-section,
+#modal_overlay .cbi-value.enan-section-value > .cbi-value-field > .cbi-section > .cbi-section-node,
+#modal_overlay .cbi-value.enan-section-value > .cbi-value-field > .cbi-section > .cbi-section-node-tabbed {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+
+/* Global LuCI SectionValue layout: nested forms must not inherit the
+   narrow label/field column split of their outer cbi-value row. */
+.cbi-value.enan-section-value {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+}
+.cbi-value.enan-section-value > .cbi-value-title {
+  display: block !important;
+  width: 100% !important;
+  padding: 16px 24px 12px !important;
+  color: var(--enan-text) !important;
+  border-bottom: 1px solid var(--enan-border) !important;
+  background: var(--enan-surface-2) !important;
+}
+.cbi-value.enan-section-value > .cbi-value-field {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  padding: 0 !important;
+}
+.cbi-value.enan-section-value > .cbi-value-field > .cbi-section,
+.cbi-value.enan-section-value > .cbi-value-field > .cbi-section > .cbi-section-node,
+.cbi-value.enan-section-value > .cbi-value-field > .cbi-section > .cbi-section-node-tabbed {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+/* Status include cards use .cbi-title + .table rather than form legends. */
+.cbi-section > .cbi-title {
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+.cbi-section > .cbi-title > h3 {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  min-height: 54px !important;
+  margin: 0 !important;
+  padding: 16px 20px !important;
+  color: var(--enan-text) !important;
+  background: var(--enan-surface-2) !important;
+  border-bottom: 1px solid var(--enan-border) !important;
+  line-height: 1.4 !important;
+}
+.cbi-section > .cbi-title + .table,
+.cbi-section > .cbi-title + table.table {
+  width: 100% !important;
+  margin: 0 !important;
+  table-layout: fixed !important;
+  border-collapse: collapse !important;
+  background: transparent !important;
+}
+.cbi-section > .cbi-title + .table > tbody > .tr > .td,
+.cbi-section > .cbi-title + table.table > tbody > .tr > .td {
+  box-sizing: border-box !important;
+  min-height: 48px !important;
+  padding: 13px 20px !important;
+  color: var(--enan-text-2) !important;
+  vertical-align: middle !important;
+  text-align: left !important;
+  line-height: 1.5 !important;
+  border-bottom: 1px solid var(--enan-border) !important;
+}
+.cbi-section > .cbi-title + .table > tbody > .tr:last-child > .td,
+.cbi-section > .cbi-title + table.table > tbody > .tr:last-child > .td {
+  border-bottom: 0 !important;
+}
+.cbi-section > .cbi-title + .table > tbody > .tr > .td:first-child,
+.cbi-section > .cbi-title + table.table > tbody > .tr > .td:first-child {
+  width: 33% !important;
+  color: var(--enan-text) !important;
+  font-weight: 600 !important;
+}
+.cbi-section > .cbi-title + .table .cbi-progressbar {
+  width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+}
+.cbi-section > .cbi-title + .table .cbi-progressbar > div {
+  min-width: 0 !important;
+}
+/* Keep Status include cards readable even when the base theme has a generic
+   overflow rule. */
+.cbi-section.enan-status-section { overflow: visible !important; }
+
+
+/* Status include DOM places the table inside a container after .cbi-title. */
+.enan-status-section .table,
+.enan-status-section table.table {
+  display: table !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  table-layout: fixed !important;
+  border-collapse: collapse !important;
+  background: transparent !important;
+}
+.enan-status-section .table > tbody > .tr,
+.enan-status-section table.table > tbody > .tr {
+  display: table-row !important;
+  width: 100% !important;
+}
+.enan-status-section .table > tbody > .tr > .td,
+.enan-status-section table.table > tbody > .tr > .td {
+  display: table-cell !important;
+  box-sizing: border-box !important;
+  min-height: 48px !important;
+  padding: 13px 20px !important;
+  vertical-align: middle !important;
+  text-align: left !important;
+  line-height: 1.5 !important;
+  border-bottom: 1px solid var(--enan-border) !important;
+}
+.enan-status-section .table > tbody > .tr > .td:first-child,
+.enan-status-section table.table > tbody > .tr > .td:first-child {
+  width: 33% !important;
+  padding-left: 20px !important;
+  padding-right: 24px !important;
+  color: var(--enan-text) !important;
+  font-weight: 600 !important;
+  white-space: normal !important;
+}
+.enan-status-section .table > tbody > .tr > .td:nth-child(2),
+.enan-status-section table.table > tbody > .tr > .td:nth-child(2) {
+  width: 67% !important;
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+.enan-status-section .table > tbody > .tr:last-child > .td { border-bottom: 0 !important; }
+.enan-status-section .cbi-progressbar {
+  display: block !important;
+  width: 100% !important;
+  height: 8px !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  border: 1px solid var(--enan-border-light) !important;
+  border-radius: 999px !important;
+  background: var(--enan-surface-3) !important;
+}
+.enan-status-section .cbi-progressbar > div {
+  display: block !important;
+  height: 100% !important;
+  min-width: 2px !important;
+  border-radius: inherit !important;
+  background: linear-gradient(90deg, var(--enan-accent), var(--enan-accent-2)) !important;
+}
+
+
+/* =========================================================
+   ENAN layout contract: follow LuCI Bootstrap's flex form rows.
+   The previous grid rules can collapse the field column on nested
+   Wireless/Flash forms, so the final contract is deliberately explicit.
+   ========================================================= */
+.cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) {
+  display: flex !important;
+  flex-flow: row wrap !important;
+  align-items: flex-start !important;
+  column-gap: 20px !important;
+  row-gap: 4px !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+.cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-title {
+  flex: 0 0 190px !important;
+  width: 190px !important;
+  max-width: 190px !important;
+  min-width: 190px !important;
+  box-sizing: border-box !important;
+  padding: 8px 0 !important;
+  text-align: left !important;
+}
+.cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 280px !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+}
+.cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > input:not([type="checkbox"]):not([type="radio"]),
+.cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > select,
+.cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > textarea,
+.cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > .cbi-dropdown,
+.cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > .cbi-input-select,
+.cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > .cbi-input-text {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+.cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > input[type="submit"],
+.cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > input[type="button"],
+.cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > button {
+  display: inline-flex !important;
+  width: auto !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+/* The same flex contract applies inside the Wireless/Flash modal. */
+#modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) {
+  display: flex !important;
+  flex-flow: row wrap !important;
+  column-gap: 22px !important;
+  row-gap: 4px !important;
+  width: 100% !important;
+}
+#modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-title {
+  flex: 0 0 210px !important;
+  width: 210px !important;
+  max-width: 210px !important;
+  min-width: 210px !important;
+}
+#modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 320px !important;
+}
+#modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > input:not([type="checkbox"]):not([type="radio"]),
+#modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > select,
+#modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > textarea,
+#modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > .cbi-dropdown,
+#modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > .cbi-input-select,
+#modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > .cbi-input-text {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+@media (max-width: 700px) {
+  .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-title,
+  #modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-title {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+  .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field,
+  #modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
+
+/* Final hardening for real LuCI Wireless/GridSection modals.  Every nested
+   SectionNode is a full-width block; only the immediate label/field row is
+   flexed. This avoids the narrow intrinsic-width column visible on devices. */
+#modal_overlay .cbi-map,
+#modal_overlay .cbi-map > .cbi-section,
+#modal_overlay .cbi-map > .cbi-section > .cbi-section-node,
+#modal_overlay .cbi-map > .cbi-section > .cbi-section-node-tabbed,
+#modal_overlay .cbi-section-node > .cbi-section,
+#modal_overlay .cbi-section-node-tabbed > .cbi-section,
+#modal_overlay .cbi-section-node-tabbed > [data-tab-active] {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+#modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: flex-start !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+#modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-title {
+  flex: 0 0 210px !important;
+  width: 210px !important;
+  min-width: 210px !important;
+  max-width: 210px !important;
+  box-sizing: border-box !important;
+}
+#modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field {
+  display: block !important;
+  flex: 1 1 0 !important;
+  width: auto !important;
+  min-width: 300px !important;
+  max-width: none !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+}
+#modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > * {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+#modal_overlay .cbi-value-description {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+}
+
+
+/* A-HADDAD neutral Cancel / Close controls: preserve LuCI handlers while
+   giving every form and modal the Bootstrap-style secondary action. */
+.enan-cancel-button,
+.cbi-button-reset,
+.cbi-button-neutral,
+#modal_overlay .button-row > .enan-cancel-button,
+#modal_overlay .button-row > .btn.cbi-button-reset,
+#modal_overlay .button-row > .btn.cbi-button-neutral {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 34px !important;
+  padding: 8px 16px !important;
+  border: 1px solid var(--enan-border-light) !important;
+  border-radius: 7px !important;
+  background: var(--enan-surface-2) !important;
+  color: var(--enan-text-2) !important;
+  box-shadow: none !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  transform: none !important;
+}
+.enan-cancel-button:hover,
+.cbi-button-reset:hover,
+.cbi-button-neutral:hover,
+#modal_overlay .button-row > .enan-cancel-button:hover,
+#modal_overlay .button-row > .btn.cbi-button-reset:hover,
+#modal_overlay .button-row > .btn.cbi-button-neutral:hover {
+  background: var(--enan-surface-3) !important;
+  border-color: var(--enan-accent) !important;
+  color: var(--enan-text) !important;
+  filter: none !important;
+  transform: translateY(-1px) !important;
+}
+.enan-cancel-button:focus-visible,
+.cbi-button-reset:focus-visible,
+.cbi-button-neutral:focus-visible {
+  outline: 2px solid var(--enan-accent) !important;
+  outline-offset: 2px !important;
+}
+
+/* Compact A-HADDAD header contract for long hostnames and menu labels. */
+.enan-topbar { padding-left: 16px !important; padding-right: 16px !important; }
+.enan-topbar-brand { gap: 7px !important; min-width: 0; }
+.enan-brand-name { white-space: nowrap !important; }
+.enan-hostname { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.enan-topnav { gap: 0 !important; }
+.enan-topnav-item { font-size: 12px !important; padding: 6px 8px !important; gap: 4px !important; }
+
+
+/* =========================================================
+   Final form-control contract: equal widths and one-line controls.
+   Keep textareas tall, but prevent cbi-dropdown preview lists from
+   increasing the height of Device/netmask fields.
+   ========================================================= */
+.cbi-value-field > input:not([type="checkbox"]):not([type="radio"]),
+.cbi-value-field > select,
+.cbi-value-field > .cbi-dropdown,
+.cbi-value-field > .cbi-input-select,
+.cbi-value-field > .cbi-input-text,
+#modal_overlay .cbi-value-field > input:not([type="checkbox"]):not([type="radio"]),
+#modal_overlay .cbi-value-field > select,
+#modal_overlay .cbi-value-field > .cbi-dropdown,
+#modal_overlay .cbi-value-field > .cbi-input-select,
+#modal_overlay .cbi-value-field > .cbi-input-text {
+  width: auto !important;
+  min-width: 200px;
+  max-width: 620px !important;
+  box-sizing: border-box !important;
+}
+.cbi-value-field > input:not([type="checkbox"]):not([type="radio"]),
+.cbi-value-field > select,
+.cbi-value-field > .cbi-dropdown,
+.cbi-value-field > .cbi-input-select,
+.cbi-value-field > .cbi-input-text,
+#modal_overlay .cbi-value-field > input:not([type="checkbox"]):not([type="radio"]),
+#modal_overlay .cbi-value-field > select,
+#modal_overlay .cbi-value-field > .cbi-dropdown,
+#modal_overlay .cbi-value-field > .cbi-input-select,
+#modal_overlay .cbi-value-field > .cbi-input-text {
+  height: 38px !important;
+  min-height: 38px !important;
+  max-height: 38px !important;
+  line-height: 20px !important;
+}
+.cbi-value-field > textarea,
+#modal_overlay .cbi-value-field > textarea {
+  width: 100% !important;
+  max-width: 620px !important;
+  min-height: 110px !important;
+  height: auto !important;
+  max-height: none !important;
+  box-sizing: border-box !important;
+}
+.cbi-value-field > .cbi-dropdown,
+#modal_overlay .cbi-value-field > .cbi-dropdown {
+  display: inline-flex !important;
+  align-items: center !important;
+  position: relative !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  vertical-align: middle !important;
+}
+.cbi-value-field > .cbi-dropdown > ul.preview,
+#modal_overlay .cbi-value-field > .cbi-dropdown > ul.preview {
+  display: flex !important;
+  align-items: center !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  margin: 0 !important;
+  padding: 0 34px 0 12px !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+}
+.cbi-value-field > .cbi-dropdown > ul.preview > li,
+#modal_overlay .cbi-value-field > .cbi-dropdown > ul.preview > li {
+  align-items: center !important;
+  min-height: 36px !important;
+  height: 36px !important;
+  padding: 0 !important;
+  line-height: 20px !important;
+}
+.cbi-value-field > .cbi-dropdown > .open,
+#modal_overlay .cbi-value-field > .cbi-dropdown > .open {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  width: 32px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 36px !important;
+}
+.cbi-value-field > .cbi-dropdown > ul.dropdown,
+#modal_overlay .cbi-value-field > .cbi-dropdown > ul.dropdown {
+  max-width: 100% !important;
+  max-height: 320px !important;
+  height: auto !important;
+  overflow: auto !important;
+}
+
+/* A closed modal must never intercept clicks, even if an older LuCI view
+   leaves #modal_overlay in the DOM after hideModal(). */
+#modal_overlay { pointer-events: none !important; }
+body.modal-overlay-active #modal_overlay {
+  pointer-events: auto !important;
+}
+
+/* =========================================================
+   RTL support (Arabic, Hebrew, Persian, Urdu)
+   Activated via html[dir="rtl"] set by the theme templates
+   from dispatcher.lang. Flexbox and grid flip automatically;
+   the rules below fix physical left/right positioning.
+   ========================================================= */
+[dir="rtl"] .enan-sidebar {
+  left: auto;
+  right: 0;
+  border-right: 0;
+  border-left: 1px solid var(--enan-border);
+}
+[dir="rtl"] .enan-main,
+[dir="rtl"] .enan-footer {
+  margin-left: 0;
+  margin-right: var(--enan-sidebar-width);
+}
+[dir="rtl"] .enan-theme-toggle {
+  right: auto;
+  left: 20px;
+}
+[dir="rtl"] .enan-topnav-item,
+[dir="rtl"] .enan-menu-trigger,
+[dir="rtl"] .enan-sidebar-item,
+[dir="rtl"] .enan-sidebar-subitem,
+[dir="rtl"] .enan-dropdown-item {
+  text-align: right;
+}
+[dir="rtl"] .enan-dropdown-menu {
+  left: auto;
+  right: 0;
+}
+[dir="rtl"] .enan-dropdown-entry.open > .enan-submenu {
+  left: auto;
+  right: calc(100% + 6px);
+}
+[dir="rtl"] .enan-sidebar-submenu {
+  margin-left: 0;
+  margin-right: 22px;
+  padding-left: 0;
+  padding-right: 10px;
+  border-left: 0;
+  border-right: 1px solid var(--enan-border-light);
+}
+[dir="rtl"] .enan-sidebar-nested-trigger .enan-nav-chevron,
+[dir="rtl"] .enan-sidebar-trigger .enan-nav-chevron {
+  margin-left: 0;
+  margin-right: auto;
+}
+[dir="rtl"] .enan-sidebar-submenu-nested {
+  margin-left: 0;
+  margin-right: 12px;
+  padding-left: 0;
+  padding-right: 9px;
+}
+[dir="rtl"] .enan-nav-chevron { margin-left: 0; margin-right: 2px; }
+[dir="rtl"] .enan-hostname { margin-left: 0; margin-right: 4px; }
+[dir="rtl"] .enan-topnav-item svg { margin-right: 0; margin-left: 4px; }
+
+/* Form and table alignment */
+[dir="rtl"] .cbi-value-title { text-align: right !important; }
+[dir="rtl"] .td.left { text-align: right; }
+[dir="rtl"] .td.right { text-align: left; }
+[dir="rtl"] .cbi-value-description,
+[dir="rtl"] .cbi-section-descr,
+[dir="rtl"] .cbi-map-descr { text-align: right; }
+
+/* LuCI dropdown lists and split buttons */
+[dir="rtl"] .cbi-page-actions .cbi-dropdown > ul.dropdown {
+  right: auto !important;
+  left: 0 !important;
+}
+[dir="rtl"] .cbi-page-actions .cbi-dropdown.cbi-button > .open,
+[dir="rtl"] .cbi-page-actions .cbi-dropdown.btn > .open {
+  border-left: 0;
+  border-right: 1px solid rgba(11, 16, 32, 0.35) !important;
+}
+[dir="rtl"] .cbi-dropdown > ul.dropdown > li,
+[dir="rtl"] .cbi-dropdown ul.preview > li { text-align: right; }
+
+/* Alert messages already use border-inline-start (flip automatically) */
+[dir="rtl"] .alert-message .right { text-align: left; }
+
+/* Mobile drawer flips to the right side in RTL */
+@media (max-width: 860px) {
+  [dir="rtl"] .enan-sidebar { transform: translateX(100%); }
+  [dir="rtl"] body.enan-sidebar-open .enan-sidebar { transform: translateX(0); }
+  [dir="rtl"] .enan-main,
+  [dir="rtl"] .enan-footer { margin-right: 0; }
+}
+@media (max-width: 640px) {
+  [dir="rtl"] .enan-footer { margin-right: 0 !important; }
+}
+
+/* =========================================================
+   v3.5.0 dashboard additions: wireless totals, muted values
+   ========================================================= */
+.enan-wifi-totals {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--enan-text-3);
+  font-family: var(--enan-font-mono);
+}
+.enan-wifi-stats span { white-space: nowrap; }
+.enan-net-traffic .muted,
+.enan-net-speed .muted { color: var(--enan-text-3); }
+
+/* =========================================================
+   Status include cards — official LuCI 24.10 DOM
+   (section > h3 + div > table.table). enan-dashboard.js tags
+   these sections with .enan-status-section, so the table and
+   progressbar rules above apply; the bare h3 gets the same
+   card-header treatment as .cbi-title here.
+   ========================================================= */
+.enan-status-section > h3:first-child {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  min-height: 54px !important;
+  margin: 0 !important;
+  padding: 16px 20px !important;
+  color: var(--enan-text) !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  background: var(--enan-surface-2) !important;
+  border-bottom: 1px solid var(--enan-border) !important;
+  line-height: 1.4 !important;
+}
+
+/* Global progressbar contract (status includes and any other page) */
+.cbi-progressbar {
+  display: block;
+  width: 100%;
+  height: 8px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--enan-border-light);
+  border-radius: 999px;
+  background: var(--enan-surface-3);
+}
+.cbi-progressbar > div {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--enan-accent), var(--enan-accent-2));
+}
+
+/* =========================================================
+   LuCI div-table display contract (identical semantics to the
+   bootstrap cascade): modern LuCI tables are divs with
+   .table/.tr/.td/.th classes and need explicit display rules,
+   otherwise rows collapse and action columns disappear.
+   ========================================================= */
+.table { display: table; }
+.tr { display: table-row; }
+.td, .th { display: table-cell; }
+.cbi-section-table { display: table; width: 100%; max-width: 100%; }
+.cbi-section-table .tr { display: table-row; }
+.cbi-section-table .th,
+.cbi-section-table .td,
+.table > .tr > .td,
+.table > .tr > .th,
+.table > tbody > .tr > .td,
+.table > tbody > .tr > .th {
+  display: table-cell;
+  padding: 12px 14px;
+  vertical-align: middle;
+  color: var(--enan-text-2);
+  font-size: 13px;
+  border-bottom: 1px solid var(--enan-border);
+}
+.cbi-section-table .th,
+.table > .tr > .th,
+.table > tbody > .tr > .th {
+  background: var(--enan-surface-2);
+  color: var(--enan-text-3);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.cbi-section-table .tr:last-child > .td,
+.table > .tr:last-child > .td,
+.table > tbody > .tr:last-child > .td { border-bottom: 0; }
+.th.cbi-section-actions,
+.td.cbi-section-actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+  vertical-align: middle;
+}
+.th.cbi-section-actions > *,
+.td.cbi-section-actions > * {
+  display: inline-block;
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
+/* Add/remove section button (e.g. Watchcat Delete) sits right-aligned
+   above the tabs, like the bootstrap theme. */
+.cbi-section-remove {
+  padding: 10px 20px;
+  text-align: right;
+}
+.cbi-section-remove .cbi-button { margin: 0; }
+
+/* =========================================================
+   Official LuCI tooltip contract (cbi-tooltip-container):
+   every device/zone badge carries its own tooltip; hovering
+   that badge shows only its tooltip.
+   ========================================================= */
+.cbi-tooltip-container { cursor: help; }
+.cbi-tooltip {
+  position: absolute;
+  z-index: 1000;
+  left: -10000px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--enan-border-light);
+  border-radius: 8px;
+  background: var(--enan-surface-2);
+  color: var(--enan-text-2);
+  white-space: pre;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  opacity: 0;
+  transition: opacity .25s ease-in;
+}
+.cbi-tooltip-container:hover .cbi-tooltip:not(:empty) {
+  left: auto;
+  opacity: 1;
+}
+.zonebadge .cbi-tooltip {
+  padding: 1px;
+  background: inherit;
+  margin: -1.6em 0 0 -5px;
+  border-radius: 3px;
+  pointer-events: none;
+}
+.zonebadge .cbi-tooltip > * {
+  margin: 1px;
+  z-index: 2;
+  position: relative;
+}
+
+/* =========================================================
+   v3.5.6 — unified field widths, per-device tooltips,
+   action-button overflow and device-map layout
+   ========================================================= */
+
+/* Device badges stay in ONE line inside the interface box */
+.ifacebox .ifacebox-body > * { margin: 0 !important; }
+
+/* Deterministic per-device tooltips: each tooltip is anchored below its
+   OWN badge (direct-child hover). An ancestor container's generic tooltip
+   is suppressed while a nested badge is hovered (:has). */
+.cbi-tooltip-container { cursor: help; }
+.cbi-tooltip {
+  position: absolute;
+  z-index: 1000;
+  left: -10000px;
+  pointer-events: none;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--enan-border-light);
+  border-radius: 8px;
+  background: var(--enan-surface-2);
+  color: var(--enan-text-2);
+  white-space: pre;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  opacity: 0;
+  transition: opacity .25s ease-in;
+}
+.cbi-tooltip-container:hover .cbi-tooltip:not(:empty) {
+  left: auto;
+  opacity: 1;
+}
+
+/* Row action buttons: compact and wrappable so they never overflow
+   the card edge on Interfaces / Wireless tables */
+.td.cbi-section-actions,
+.th.cbi-section-actions { white-space: nowrap; }
+.cbi-section-table .cbi-section-actions .cbi-button,
+.table .cbi-section-actions .cbi-button {
+  min-height: 30px !important;
+  padding: 6px 10px !important;
+  font-size: 10px !important;
+  letter-spacing: .2px !important;
+  margin: 2px 0 2px 5px !important;
+}
+
+/* Dynamic lists (IPv6 addresses, DNS servers...): the add button stays
+   a small control instead of a full-width bar */
+.cbi-dynlist {
+  display: inline-flex !important;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 200px;
+  max-width: 620px;
+}
+.cbi-value-field > .cbi-button,
+.cbi-dynlist .cbi-button {
+  width: auto !important;
+  align-self: flex-start;
+}
+
+/* =========================================================
+   v3.5.8 — final width caps, bootstrap ifacebox parity,
+   mobile stacked tables, in-card action buttons
+   ========================================================= */
+.cbi-value-field .cbi-dropdown,
+#modal_overlay .cbi-value-field .cbi-dropdown {
+  width: auto !important;
+  min-width: 190px;
+  max-width: 420px !important;
+}
+.cbi-dropdown[open] > ul.dropdown {
+  width: max-content !important;
+  min-width: 100% !important;
+}
+
+/* Tables scroll inside their card instead of escaping it */
+.cbi-section-node,
+.cbi-section-node-tabbed { overflow-x: auto; }
+
+/* Narrow screens: stack table rows like the official themes
+   (each cell becomes a labelled block) */
+@media (max-width: 700px) {
+  .cbi-section-table .th { display: none !important; }
+  .cbi-section-table .tr {
+    display: block !important;
+    border-bottom: 1px solid var(--enan-border);
+    padding: 10px 0;
+  }
+  .cbi-section-table .td {
+    display: block !important;
+    border: 0 !important;
+    padding: 4px 14px !important;
+    width: auto !important;
+  }
+  .cbi-section-table .td::before {
+    content: attr(data-title);
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--enan-text-3);
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    margin-bottom: 2px;
+  }
+  .cbi-section-table .td:empty::before { display: none; }
+  .td.cbi-section-actions,
+  .th.cbi-section-actions {
+    white-space: normal !important;
+    text-align: left !important;
+    padding-top: 8px !important;
+  }
+}
+
+/* =========================================================
+   v3.5.9 — interface row parity with bootstrap:
+   fixed 33% device column, centered details, in-card actions,
+   tooltips never clipped
+   ========================================================= */
+body[class*="node-admin-network"] .cbi-section-table .tr > .td:first-child,
+body[class*="node-admin-status"] .cbi-section-table .tr > .td:first-child {
+  width: 33%;
+  text-align: center;
+}
+.td.cbi-section-actions {
+  padding-right: 24px !important;
+}
+.cbi-section-table .td.cbi-section-actions .cbi-button:last-child {
+  margin-right: 0 !important;
+}
+/* No ancestor of a tooltip may clip it */
+.ifacebox,
+.ifacebox-body,
+.cbi-section-table .td,
+.table .td { overflow: visible !important; }
+
+/* =========================================================
+   v3.5.10 — deterministic tooltip contract (cannot stick):
+   hidden with display:none unless the device's OWN container
+   is hovered; anchored under that container; never captures
+   the pointer so no cascade/fan-out is possible.
+   ========================================================= */
+.cbi-tooltip-container { position: relative; }
+
+.cbi-tooltip {
+  display: none !important;
+  position: absolute !important;
+  z-index: 1000;
+  top: calc(100% + 6px);
+  left: 0;
+  right: auto;
+  pointer-events: none;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--enan-border-light);
+  border-radius: 8px;
+  background: var(--enan-surface-2);
+  color: var(--enan-text-2);
+  white-space: pre;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  opacity: 1;
+  min-width: 220px;
+}
+
+.cbi-tooltip-container:not(:hover) > .cbi-tooltip {
+  display: none !important;
+}
+
+.cbi-tooltip-container:hover > .cbi-tooltip {
+  display: block !important;
+  animation: enanTooltipIn .15s ease;
+}
+
+@keyframes enanTooltipIn {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* RTL: anchor to the right edge of the badge */
+[dir="rtl"] .cbi-tooltip { left: auto; right: 0; }
+
+/* =========================================================
+   v3.6.0-fix — Wireless Overview column parity with bootstrap
+   Problem: on the Wireless page the badge/signal column ballooned to ~70%
+   of the row while the details column collapsed to min-content. Cause: the
+   generic v3.5.9 rule (width:33% + centering on the first column of every
+   .cbi-section-table on network pages) interacting with auto table-layout
+   and the 1%-width nowrap actions column.
+   Fix: deterministic fixed layout with explicit column widths, scoped to
+   the Wireless page ONLY. Modals (Scan/Edit) and mobile cards keep the
+   natural auto layout. No other screen is touched.
+   ========================================================= */
+body[class*="node-admin-network-wireless"] .cbi-section-table {
+  table-layout: fixed !important;
+}
+body[class*="node-admin-network-wireless"] .cbi-section-table .tr > :first-child {
+  width: 220px !important;
+  text-align: center;
+}
+body[class*="node-admin-network-wireless"] .cbi-section-table .tr > :nth-child(2) {
+  width: auto !important;
+}
+body[class*="node-admin-network-wireless"] .cbi-section-table .tr > :last-child {
+  /* 280px = DISABLE+EDIT+REMOVE (أو RESTART+SCAN+ADD) بهوامشها وحشوها —
+     أقل من ذلك يفيض المحتوى (nowrap) خارج الإطار كما في بلاغ 3.6.0-fix-1 */
+  width: 280px !important;
+}
+/* Modal tables on the wireless page (scan results, edit dialog) stay auto */
+body[class*="node-admin-network-wireless"] #modal_overlay .cbi-section-table,
+body[class*="node-admin-network-wireless"] .modal .cbi-section-table {
+  table-layout: auto !important;
+}
+body[class*="node-admin-network-wireless"] #modal_overlay .cbi-section-table .tr > :first-child,
+body[class*="node-admin-network-wireless"] #modal_overlay .cbi-section-table .tr > :last-child,
+body[class*="node-admin-network-wireless"] .modal .cbi-section-table .tr > :first-child,
+body[class*="node-admin-network-wireless"] .modal .cbi-section-table .tr > :last-child {
+  width: auto !important;
+}
+/* Mobile stacked-card mode: undo the fixed column widths */
+@media (max-width: 700px) {
+  body[class*="node-admin-network-wireless"] .cbi-section-table {
+    table-layout: auto !important;
+  }
+  body[class*="node-admin-network-wireless"] .cbi-section-table .tr > :first-child,
+  body[class*="node-admin-network-wireless"] .cbi-section-table .tr > :last-child {
+    width: auto !important;
+  }
+}
+
+/* =========================================================
+   v3.6.0-fix-2 — Associated Stations (table.assoclist) on phones
+   Problem: assoclist is NOT a .cbi-section-table, so the mobile
+   stacked-card rules never matched it; the 6-column desktop table
+   forced the whole page to shrink/scroll to its width on phones.
+   Fix: stack assoclist rows into labelled cards at <=700px, exactly
+   like the official themes do for section tables. Scoped to the
+   Wireless page only (assoclist exists nowhere else).
+   ========================================================= */
+@media (max-width: 700px) {
+  body[class*="node-admin-network-wireless"] table.assoclist .tr {
+    display: block !important;
+    border-bottom: 1px solid var(--enan-border);
+    padding: 10px 0;
+  }
+  body[class*="node-admin-network-wireless"] table.assoclist .th {
+    display: none !important;
+  }
+  body[class*="node-admin-network-wireless"] table.assoclist .td {
+    display: block !important;
+    border: 0 !important;
+    padding: 4px 14px !important;
+    width: auto !important;
+  }
+  body[class*="node-admin-network-wireless"] table.assoclist .td::before {
+    content: attr(data-title);
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--enan-text-3);
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    margin-bottom: 2px;
+  }
+  body[class*="node-admin-network-wireless"] table.assoclist .td:empty::before {
+    display: none;
+  }
+  body[class*="node-admin-network-wireless"] table.assoclist .td.cbi-section-actions,
+  body[class*="node-admin-network-wireless"] table.assoclist .td:last-child {
+    white-space: normal !important;
+    text-align: left !important;
+    padding-top: 8px !important;
+  }
+}
+
+/* =========================================================
+   v3.6.3 — dynamic dropdowns (.cbi-dropdown) width parity.
+   Problem (global, all screens): the "ENAN layout contract" block
+   forces width:100%/max-width:none on .cbi-value-field children with
+   higher specificity than the later unification rules, so queried
+   dropdowns (Device, Bridge ports, Network, watchcat Interface…)
+   stretched edge-to-edge while static selects/inputs stayed compact;
+   and ul.dropdown max-width:100% kept the open popup as narrow as the
+   closed box instead of growing to the widest option (bootstrap parity).
+   Fix: same specificity as the contract selectors, placed LAST in the
+   cascade so it wins: closed box behaves like other fields
+   (fit-content, 200–620px), open popup grows to max-content of its
+   widest item, capped for small screens.
+   ========================================================= */
+.cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > .cbi-dropdown,
+#modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > .cbi-dropdown {
+  display: inline-flex !important;
+  width: fit-content !important;
+  min-width: 200px;
+  max-width: 620px !important;
+  box-sizing: border-box !important;
+  vertical-align: middle !important;
+}
+/* Open popup: as wide as its widest option (like bootstrap), capped on
+   narrow viewports; never clipped to the closed box width. */
+.cbi-value-field > .cbi-dropdown > ul.dropdown,
+#modal_overlay .cbi-value-field > .cbi-dropdown > ul.dropdown {
+  width: max-content !important;
+  min-width: 100% !important;
+  max-width: min(620px, calc(100vw - 40px)) !important;
+}
+
+/* =========================================================
+   v3.6.4 — closed dropdown box polish (bootstrap parity):
+   * minimum width = the other fields' minimum (200px) even when the
+     selected content is narrower (contract rule forced min-width:0);
+   * grows with more selected items up to 620px;
+   * the arrow compartment is a STATIC flex item at the end of the box
+     (was position:absolute ⇒ overlapped the content when the box shrank).
+   ========================================================= */
+.cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > .cbi-dropdown,
+#modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > .cbi-dropdown {
+  display: inline-flex !important;
+  flex-wrap: nowrap !important;
+  width: fit-content !important;
+  min-width: 200px !important;
+  max-width: 620px !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  padding: 0 !important;
+  vertical-align: middle !important;
+}
+.cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > .cbi-dropdown > ul.preview,
+#modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > .cbi-dropdown > ul.preview {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 12px !important;
+}
+.cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > .cbi-dropdown > .open,
+#modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > .cbi-dropdown > .open {
+  position: static !important;
+  display: flex !important;
+  flex: 0 0 34px !important;
+  width: 34px !important;
+  align-self: stretch !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-left: 1px solid var(--enan-border-light) !important;
+  cursor: pointer;
+}
+[dir="rtl"] .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > .cbi-dropdown > .open,
+[dir="rtl"] #modal_overlay .cbi-value:not(.enan-section-value):not(.hidden):not([hidden]) > .cbi-value-field > .cbi-dropdown > .open {
+  border-left: 0 !important;
+  border-right: 1px solid var(--enan-border-light) !important;
+}

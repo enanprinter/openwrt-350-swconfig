@@ -1,0 +1,120 @@
+{#
+ A-HADDAD Dashboard theme — LuCI header template.
+
+ Aligned with the official luci-theme-bootstrap contract (OpenWrt 24.10):
+   * no external resources (offline-safe),
+   * translations script loaded for JS views,
+   * standard warnings (no password / initramfs / noscript),
+   * cache busting via pkgs_update_time,
+   * dispatcher.lang + dir for RTL languages.
+
+ Note: luci.js and the L environment are injected by the LuCI dispatcher
+ right after this header template. Do not load luci.js here.
+-#}
+
+{%
+	import { getuid, getspnam } from 'luci.core';
+
+	const boardinfo = ubus.call('system', 'board');
+	const rtl_dir = match(dispatcher.lang, /^(ar|he|fa|ur)/) ? 'rtl' : 'ltr';
+
+	http.prepare_content('text/html; charset=UTF-8');
+-%}
+<!DOCTYPE html>
+<html lang="{{ dispatcher.lang }}" dir="{{ rtl_dir }}">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>{{ striptags(`${boardinfo.hostname ?? 'OpenWrt'}${dispatched?.title ? ' - ' + striptags(dispatched.title) : ''}`) }} | A-HADDAD Dashboard</title>
+	<meta name="theme-color" content="#0a0e1a">
+	<meta name="robots" content="noindex, nofollow">
+
+	<link rel="icon" type="image/svg+xml" href="{{ media }}/enan-logo.svg">
+	<link rel="stylesheet" href="{{ media }}/enan-dashboard.css?v={{ pkgs_update_time }}">
+
+	<!-- Apply the persisted theme before the first paint. -->
+	<script>
+	(function() {
+		const saved = localStorage.getItem('enan-theme');
+		const theme = saved === 'light' ? 'light' : 'dark';
+		document.documentElement.setAttribute('data-theme', theme);
+		document.documentElement.setAttribute('data-enan-theme', theme);
+	})();
+	</script>
+
+	<!-- Standard LuCI loading order: translations first, then cbi.js
+	     (identical to the official bootstrap theme). -->
+	<script src="{{ dispatcher.build_url('admin/translations', dispatcher.lang) }}?v={{ pkgs_update_time }}"></script>
+	<script src="{{ resource }}/cbi.js?v={{ pkgs_update_time }}"></script>
+	<script src="{{ media }}/enan-dashboard.js?v={{ pkgs_update_time }}"></script>
+	<script src="{{ media }}/enan-navigation.js?v={{ pkgs_update_time }}"></script>
+	<script src="{{ media }}/dashboard-widgets.js?v={{ pkgs_update_time }}"></script>
+</head>
+
+<body class="lang_{{ dispatcher.lang }} {{ ctx?.request_path ? 'node-' + entityencode(join('-', ctx.request_path), true) : '' }}"
+	data-page="{{ entityencode(join('-', ctx?.request_path ?? []), true) }}"
+	data-path="{{ join('/', ctx?.request_path ?? []) }}"
+	data-media="{{ media }}"
+	data-resource="{{ resource }}">
+
+	<header class="enan-topbar">
+		<button class="enan-menu-btn" id="enan-menu-btn" type="button" aria-label="{{ _('Open navigation menu') }}" aria-expanded="false">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+		</button>
+		<div class="enan-topbar-brand">
+			<div class="enan-logo">◉</div>
+			<span class="enan-brand-name">A-HADDAD</span>
+			<span class="enan-hostname" id="enan-hostname">{{ boardinfo?.hostname ?? 'OpenWrt' }}</span>
+		</div>
+
+		<nav class="enan-topnav" id="enan-topnav" aria-label="Primary navigation">
+			<span class="enan-nav-loading">{{ _('Loading navigation...') }}</span>
+		</nav>
+
+			<div class="enan-topbar-right">
+				<div id="indicators" class="enan-header-indicators" aria-live="polite"></div>
+				<button class="enan-user-btn" id="enan-user-btn" type="button" aria-label="{{ _('Logout') }}">
+				<span>{{ striptags(ctx?.authuser ?? 'root') }}</span>
+				<div class="enan-user-avatar">{{ uc(substr(striptags(ctx?.authuser ?? 'root'), 0, 1)) }}</div>
+			</button>
+		</div>
+	</header>
+
+	<div class="enan-layout">
+		<aside class="enan-sidebar" id="enan-sidebar">
+			<nav class="enan-sidebar-nav" id="enan-sidebar-nav" aria-label="Sidebar navigation">
+				<div class="enan-nav-loading">{{ _('Loading navigation...') }}</div>
+			</nav>
+		</aside>
+
+		<main class="enan-main" id="maincontent">
+			<div id="flash" class="enan-flash-container"></div>
+
+			{% if (getuid() == 0 && getspnam('root')?.pwdp === ''): %}
+				<div class="alert-message warning">
+					<h4>{{ _('No password set!') }}</h4>
+					<p>{{ _('There is no password set on this router. Please configure a root password to protect the web interface.') }}</p>
+					{% if (dispatcher.lookup('admin/system/admin')): %}
+					  <div class="right"><a class="btn" href="{{ dispatcher.build_url('admin/system/admin') }}">{{ _('Go to password configuration...') }}</a></div>
+					{% endif %}
+				</div>
+			{% endif %}
+
+			{% if (boardinfo?.rootfs_type == 'initramfs'): %}
+				<div class="alert-message warning">
+					<h4>{{ _('System running in recovery (initramfs) mode.') }}</h4>
+					<p>{{ _('No changes to settings will be stored and are lost after rebooting. This mode should only be used to install a firmware upgrade') }}</p>
+					{% if (dispatcher.lookup('admin/system/flash')): %}
+					  <div class="right"><a class="btn" href="{{ dispatcher.build_url('admin/system/flash') }}">{{ _('Go to firmware upgrade...') }}</a></div>
+					{% endif %}
+				</div>
+			{% endif %}
+
+			<noscript>
+				<div class="alert-message warning">
+					<h4>{{ _('JavaScript required!') }}</h4>
+					<p>{{ _('You must enable JavaScript in your browser or LuCI will not work properly.') }}</p>
+				</div>
+			</noscript>
+
+			<div id="tabmenu" class="enan-tabmenu" style="display:none" aria-label="Page tabs"></div>

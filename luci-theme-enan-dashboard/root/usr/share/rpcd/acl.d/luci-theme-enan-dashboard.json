@@ -1,0 +1,42 @@
+{
+  "luci-theme-enan-dashboard": {
+    "description": "A-HADDAD Dashboard theme permissions",
+    "read": {
+      "file": {
+        "/proc/cpuinfo": [ "read" ],
+        "/proc/net/dev": [ "read" ],
+        "/proc/net/tcp": [ "read" ],
+        "/proc/net/tcp6": [ "read" ],
+        "/proc/net/udp": [ "read" ],
+        "/proc/net/udp6": [ "read" ],
+        "/proc/sys/net/netfilter/nf_conntrack_count": [ "read" ],
+        "/proc/sys/net/netfilter/nf_conntrack_max": [ "read" ],
+        "/sys/devices/system/cpu/*/cpufreq/*": [ "read" ],
+        "/sys/devices/system/cpu/cpufreq/*": [ "read" ],
+        "/sys/class/thermal/*/temp": [ "read" ],
+        "/sys/class/thermal/*/type": [ "read" ],
+        "/sys/class/hwmon/*/temp*_input": [ "read" ],
+        "/sys/class/hwmon/*/name": [ "read" ],
+        "/sys/class/net/*": [ "read" ]
+      },
+      "ubus": {
+        "system": [ "info", "board" ],
+        "luci-rpc": [ "getNetworkDevices", "getWirelessDevices", "getHostHints" ],
+        "luci": [ "getBuiltinEthernetPorts", "getFeatures", "getSwconfigPortState", "getSwconfigFeatures" ],
+        "network.interface": [ "dump" ],
+        "network.device": [ "status" ],
+        "iwinfo": [ "assoclist" ]
+      },
+      "uci": [ "luci", "system", "network" ]
+    },
+    "write": {
+      "uci": [ "luci" ],
+      "ubus": {
+        "file": [ "exec" ]
+      },
+      "file": {
+        "/usr/libexec/enan-port-stats": [ "exec" ]
+      }
+    }
+  }
+}

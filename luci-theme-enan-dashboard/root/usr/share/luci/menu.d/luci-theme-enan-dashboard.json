@@ -1,0 +1,20 @@
+{
+  "admin/enan-dashboard": {
+    "title": "Dashboard",
+    "order": 1,
+    "action": {
+      "type": "view",
+      "path": "enan-dashboard/overview"
+    },
+    "depends": {
+      "acl": [ "luci-theme-enan-dashboard" ],
+      "uci": {
+        "luci": {
+          "main": {
+            "mediaurlbase": "/luci-static/enan-dashboard"
+          }
+        }
+      }
+    }
+  }
+}

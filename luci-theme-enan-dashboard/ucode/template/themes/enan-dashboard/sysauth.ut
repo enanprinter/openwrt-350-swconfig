@@ -1,0 +1,252 @@
+{#
+ A-HADDAD Dashboard theme — LuCI login (sysauth) template.
+
+ Standalone login page, but following the official contract:
+   * no external resources (offline-safe),
+   * translations + cbi.js loaded like the official theme,
+   * dispatcher.lang + dir for RTL languages,
+   * cache busting via pkgs_update_time.
+-#}
+
+{%
+	const boardinfo = ubus.call('system', 'board');
+	const rtl_dir = match(dispatcher.lang, /^(ar|he|fa|ur)/) ? 'rtl' : 'ltr';
+
+	http.prepare_content('text/html; charset=UTF-8');
+-%}
+<!DOCTYPE html>
+<html lang="{{ dispatcher.lang }}" dir="{{ rtl_dir }}">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>{{ _('Authentication Required') }} | A-HADDAD Dashboard</title>
+	<meta name="theme-color" content="#0a0e1a">
+	<meta name="robots" content="noindex, nofollow">
+
+	<link rel="icon" type="image/svg+xml" href="{{ media }}/enan-logo.svg">
+	<link rel="stylesheet" href="{{ media }}/enan-dashboard.css?v={{ pkgs_update_time }}">
+
+	<script src="{{ dispatcher.build_url('admin/translations', dispatcher.lang) }}?v={{ pkgs_update_time }}"></script>
+	<script src="{{ resource }}/cbi.js?v={{ pkgs_update_time }}"></script>
+
+	<style>
+		.enan-login-body {
+			min-height: 100vh;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background: var(--enan-bg);
+			padding: 20px;
+			position: relative;
+			overflow: hidden;
+		}
+		.enan-login-body::before {
+			content: '';
+			position: absolute;
+			top: -50%; left: -50%;
+			width: 200%; height: 200%;
+			background: radial-gradient(circle at 30% 30%, rgba(201, 162, 39, 0.06) 0%, transparent 50%),
+						radial-gradient(circle at 70% 70%, rgba(15, 23, 42, 0.04) 0%, transparent 50%);
+			animation: enanLoginBg 25s ease-in-out infinite;
+		}
+		@keyframes enanLoginBg {
+			0%, 100% { transform: rotate(0deg); }
+			50% { transform: rotate(180deg); }
+		}
+		.enan-login-card {
+			background: var(--enan-surface);
+			border: 1px solid var(--enan-border);
+			border-radius: 20px;
+			padding: 40px 36px;
+			width: 100%;
+			max-width: 400px;
+			box-shadow: var(--enan-card-shadow);
+			position: relative;
+			z-index: 1;
+		}
+		.enan-login-logo {
+			text-align: center;
+			margin-bottom: 28px;
+		}
+		.enan-login-logo .enan-logo {
+			width: 56px; height: 56px;
+			border-radius: 14px;
+			margin: 0 auto 14px;
+			font-size: 24px;
+		}
+		.enan-login-logo h1 {
+			font-size: 26px;
+			font-weight: 800;
+			color: var(--enan-text);
+			letter-spacing: 3px;
+			margin: 0;
+		}
+		.enan-login-logo p {
+			font-size: 12px;
+			color: var(--enan-accent);
+			margin: 4px 0 0;
+			font-weight: 500;
+		}
+		.enan-login-form {
+			display: flex;
+			flex-direction: column;
+			gap: 16px;
+		}
+		.enan-login-field {
+			display: flex;
+			flex-direction: column;
+			gap: 5px;
+		}
+		.enan-login-field label {
+			font-size: 12px;
+			font-weight: 600;
+			color: var(--enan-text-2);
+		}
+		.enan-login-field input {
+			background: var(--enan-surface-2);
+			border: 1px solid var(--enan-border);
+			color: var(--enan-text);
+			border-radius: 10px;
+			padding: 12px 14px;
+			font-size: 14px;
+			font-family: inherit;
+			transition: all 0.3s ease;
+			width: 100%;
+			box-sizing: border-box;
+		}
+		.enan-login-field input:focus {
+			border-color: var(--enan-accent);
+			box-shadow: 0 0 0 3px var(--enan-accent-glow);
+			outline: none;
+		}
+		.enan-login-btn {
+			background: linear-gradient(135deg, var(--enan-accent), var(--enan-accent-2));
+			border: none;
+			color: #0f172a;
+			border-radius: 10px;
+			padding: 12px 24px;
+			font-weight: 700;
+			font-size: 13px;
+			text-transform: uppercase;
+			letter-spacing: 1px;
+			cursor: pointer;
+			transition: all 0.3s ease;
+			box-shadow: 0 4px 15px rgba(201, 162, 39, 0.3);
+			margin-top: 4px;
+		}
+		.enan-login-btn:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 6px 25px rgba(201, 162, 39, 0.5);
+		}
+		.enan-login-error {
+			background: rgba(239, 68, 68, 0.1);
+			color: #ef4444;
+			border-inline-start: 3px solid #ef4444;
+			border-radius: 8px;
+			padding: 10px 14px;
+			font-size: 12px;
+			margin-bottom: 12px;
+		}
+		.enan-login-theme-toggle {
+			position: absolute;
+			top: 16px;
+			inset-inline-end: 16px;
+			width: 36px;
+			height: 36px;
+			border-radius: 10px;
+			background: var(--enan-surface-2);
+			border: 1px solid var(--enan-border);
+			color: var(--enan-text);
+			font-size: 16px;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			transition: all 0.3s ease;
+			z-index: 2;
+		}
+		.enan-login-theme-toggle:hover {
+			border-color: var(--enan-accent);
+			background: var(--enan-accent-glow);
+		}
+		.enan-login-footer {
+			text-align: center;
+			margin-top: 20px;
+			font-size: 11px;
+			color: var(--enan-text-3);
+		}
+		.enan-login-footer strong {
+			color: var(--enan-accent);
+		}
+		@media (max-width: 480px) {
+			.enan-login-card { padding: 28px 20px; border-radius: 16px; }
+		}
+	</style>
+</head>
+
+<body class="enan-login-body" data-theme="dark" data-enan-theme="dark">
+	<button class="enan-login-theme-toggle" id="enan-login-theme-btn" type="button">🌙</button>
+
+	<div class="enan-login-card">
+		<div class="enan-login-logo">
+			<div class="enan-logo">◉</div>
+			<h1>A-HADDAD</h1>
+			<p>A-HADDAD | Professional Networking Solutions</p>
+		</div>
+
+		{% if (fuser): %}
+		<div class="enan-login-error">
+			{{ _('Invalid username and/or password! Please try again.') }}
+		</div>
+		{% endif %}
+
+			<form class="enan-login-form" method="post">
+
+			<div class="enan-login-field">
+				<label for="enan-username">{{ _('Username') }}</label>
+				<input type="text" name="luci_username" id="enan-username" value="{{ entityencode(duser ?? '', true) }}" placeholder="{{ _('Enter your username') }}" autocomplete="username" autofocus />
+			</div>
+
+			<div class="enan-login-field">
+				<label for="enan-password">{{ _('Password') }}</label>
+				<input type="password" name="luci_password" id="enan-password" placeholder="{{ _('Enter your password') }}" autocomplete="current-password" />
+			</div>
+
+			<button type="submit" class="enan-login-btn">{{ _('Sign In') }}</button>
+		</form>
+
+		<div class="enan-login-footer">
+			<strong>A-HADDAD Dashboard</strong> — {{ striptags(boardinfo?.release?.description ?? 'OpenWrt') }}
+			<br>
+			Powered by {{ version?.luciname ?? 'LuCI' }} ({{ version?.luciversion ?? '' }}) / {{ version?.distname ?? 'OpenWrt' }} {{ version?.distversion ?? '' }}
+		</div>
+	</div>
+
+	<script>
+	(function() {
+		const saved = localStorage.getItem('enan-theme');
+		const theme = saved || 'dark';
+		document.documentElement.setAttribute('data-theme', theme);
+		document.documentElement.setAttribute('data-enan-theme', theme);
+		document.body.setAttribute('data-theme', theme);
+		if (theme === 'light') document.documentElement.classList.add('enan-light');
+
+		const btn = document.getElementById('enan-login-theme-btn');
+		if (btn) {
+			btn.textContent = theme === 'dark' ? '🌙' : '☀️';
+			btn.addEventListener('click', function() {
+				const current = document.documentElement.getAttribute('data-enan-theme') || 'dark';
+				const next = current === 'dark' ? 'light' : 'dark';
+				document.documentElement.setAttribute('data-theme', next);
+				document.documentElement.setAttribute('data-enan-theme', next);
+				document.body.setAttribute('data-theme', next);
+				if (next === 'light') document.documentElement.classList.add('enan-light');
+				else document.documentElement.classList.remove('enan-light');
+				localStorage.setItem('enan-theme', next);
+				btn.textContent = next === 'dark' ? '🌙' : '☀️';
+			});
+		}
+	})();
+	</script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+{#
+ A-HADDAD Dashboard theme — LuCI footer template.
+
+ The LuCI dispatcher wraps this fragment with rollback/apply handling,
+ so it must stay a fragment (no <html>/<body> tags).
+-#}
+
+{%
+	const boardinfo = ubus.call('system', 'board');
+-%}
+		</main>
+	</div>
+
+	<!-- ==================== FOOTER ==================== -->
+	<footer class="enan-footer">
+		<div class="enan-footer-left">
+			<a class="enan-footer-signature" href="https://www.facebook.com/eng.salah.alhaddad" target="_blank" rel="noopener noreferrer" aria-label="Haddad-inc on Facebook">
+				<span class="enan-footer-facebook" aria-hidden="true">f</span>
+				<span class="enan-footer-signature-copy">
+					<span class="enan-footer-brand">Professional Networking Solutions</span>
+					<span class="enan-footer-sep">|</span>
+					<span class="enan-footer-meta">By Haddad-inc / 780405427</span>
+				</span>
+			</a>
+			<span class="enan-footer-sep">|</span>
+			<span class="enan-footer-powered">
+				Powered by
+				<a href="https://github.com/openwrt/luci" target="_blank" rel="noreferrer">{{ version?.luciname ?? 'LuCI' }} ({{ version?.luciversion ?? '' }})</a>
+				/
+				<a href="{{ entityencode(version?.disturl ?? '#', true) }}" target="_blank" rel="noreferrer">{{ version?.distname ?? 'OpenWrt' }} {{ version?.distversion ?? '' }} ({{ version?.distrevision ?? '' }})</a>
+			</span>
+		</div>
+		<div class="enan-footer-meta" id="enan-device-info">
+			{{ striptags(boardinfo?.model ?? 'OpenWrt device') }} • {{ striptags(boardinfo?.system ?? '?') }} • {{ striptags(boardinfo?.release?.description ?? 'OpenWrt') }}
+		</div>
+	</footer>
+
+	<!-- Theme Toggle (Bottom Right) -->
+	<button id="enan-theme-btn" class="enan-theme-toggle" type="button" aria-label="Toggle Theme">🌙</button>
+
+	<!-- v3.6.2 — mobile drawer wiring, inline on purpose: HTML is generated
+	     per request so this runs even when cached theme JS is stale.
+	     Idempotent (guard flag) with enan-navigation.js's initMobileDrawer. -->
+	<script>
+	(function () {
+		function wireDrawer() {
+			var btn = document.getElementById('enan-menu-btn');
+			if (!btn || btn._enanDrawerWired) return;
+			btn._enanDrawerWired = 1;
+			var backdrop = document.querySelector('.enan-backdrop');
+			if (!backdrop) {
+				backdrop = document.createElement('div');
+				backdrop.className = 'enan-backdrop';
+				document.body.appendChild(backdrop);
+			}
+			function isOpen() { return document.body.classList.contains('enan-sidebar-open'); }
+			function setOpen(v) {
+				document.body.classList.toggle('enan-sidebar-open', !!v);
+				btn.setAttribute('aria-expanded', v ? 'true' : 'false');
+			}
+			btn.addEventListener('click', function (ev) {
+				ev.preventDefault(); ev.stopPropagation();
+				setOpen(!isOpen());
+			});
+			backdrop.addEventListener('click', function () { setOpen(false); });
+			document.addEventListener('keydown', function (ev) {
+				if (ev.key === 'Escape' || ev.keyCode === 27) setOpen(false);
+			});
+			var side = document.getElementById('enan-sidebar');
+			if (side) side.addEventListener('click', function (ev) {
+				var t = ev.target && ev.target.closest ? ev.target.closest('a') : null;
+				if (t && window.matchMedia && window.matchMedia('(max-width: 860px)').matches) setOpen(false);
+			});
+		}
+		if (document.readyState === 'loading')
+			document.addEventListener('DOMContentLoaded', wireDrawer, { once: true });
+		else
+			wireDrawer();
+	})();
+	</script>
+
+</body>
+</html>

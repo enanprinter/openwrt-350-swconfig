@@ -1,0 +1,65 @@
+#!/bin/sh /etc/rc.common
+# ─────────────────────────────────────────────────────────────
+# A-HADDAD Dashboard guard (enan-menu-guard)
+#
+# 1) Theme-conditional Dashboard menu entry:
+#    The menu.d entry carries a "depends uci" condition on
+#    luci.main.mediaurlbase=/luci-static/enan-dashboard, but LuCI
+#    re-evaluates it only when the menu index cache is rebuilt.
+#    Switching themes (uci commit luci) does NOT invalidate
+#    /tmp/luci-indexcache by itself, so the stale entry kept
+#    showing under other themes. This guard subscribes (procd
+#    reload trigger) to every commit of the "luci" config and
+#    clears the LuCI caches, forcing a rebuild in which the
+#    depends-condition hides/shows the Dashboard entry correctly.
+#
+# 2) Permission self-heal:
+#    uhttpd serves /www as an unprivileged user; files uploaded
+#    with mode 600 (typical WinSCP accident) answer HTTP 403 and
+#    silently kill overview.js / enan-navigation.js (dashboard +
+#    mobile menu button). On boot (and on demand) we restore
+#    755/644 on OUR theme trees only — nothing else is touched.
+# ─────────────────────────────────────────────────────────────
+
+USE_PROCD=1
+START=99
+STOP=10
+
+THEME_STATIC=/www/luci-static/enan-dashboard
+THEME_VIEW=/www/luci-static/resources/view/enan-dashboard
+THEME_TPL=/usr/share/ucode/luci/template/themes/enan-dashboard
+
+_heal_perms() {
+	local d
+	for d in "$THEME_STATIC" "$THEME_VIEW" "$THEME_TPL"; do
+		[ -d "$d" ] || continue
+		find "$d" -type d -exec chmod 755 {} + 2>/dev/null
+		find "$d" -type f -exec chmod 644 {} + 2>/dev/null
+	done
+}
+
+_clear_luci_cache() {
+	rm -f /tmp/luci-indexcache /tmp/luci-indexcache.* \
+	      /tmp/luci-modulecache /tmp/luci-modulecache.* 2>/dev/null
+}
+
+service_triggers() {
+	procd_add_reload_trigger "luci"
+}
+
+start_service() {
+	_heal_perms
+	_clear_luci_cache
+	logger -t enan-menu-guard "started: perms healed, luci caches cleared"
+}
+
+reload_service() {
+	# fired by procd on every `uci commit luci` (theme switch, language…)
+	_clear_luci_cache
+	logger -t enan-menu-guard "luci config changed: menu cache cleared, Dashboard visibility re-evaluated"
+	return 0
+}
+
+boot() {
+	start
+}

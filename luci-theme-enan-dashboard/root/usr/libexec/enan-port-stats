@@ -1,0 +1,52 @@
+#!/bin/sh
+# enan-port-stats — per-port link + byte counters for the A-HADDAD dashboard.
+#
+# Usage: enan-port-stats <ifname> [ifname ...]
+#
+# On DSA targets with hardware bridge offload (e.g. CF-WA350 / qca8k) the
+# kernel netdev counters in /sys are blind to frames forwarded in hardware,
+# so the dashboard would show "—" under every port. This helper prefers the
+# switch MIB counters (ethtool -S: RxGoodByte + TxByte) — the same source the
+# vendor firmware used — and falls back to kernel counters when ethtool or
+# the MIB is unavailable (e.g. wireless interfaces).
+#
+# Output: a single JSON object on stdout, e.g.
+#   {"wan":{"carrier":1,"rx":123,"tx":456,"src":"mib"},"lan":{...}}
+# Pure POSIX shell (busybox ash compatible). Runtime dependency: ethtool
+# (optional — degrades gracefully without it).
+
+out=""
+for ifn in "$@"; do
+	case "$ifn" in
+		""|*[!A-Za-z0-9._-]*) continue ;;
+	esac
+	[ -e "/sys/class/net/$ifn" ] || continue
+
+	car=0
+	if [ -r "/sys/class/net/$ifn/carrier" ]; then
+		read -r car < "/sys/class/net/$ifn/carrier" 2>/dev/null || car=0
+	fi
+	case "$car" in 1) car=1 ;; *) car=0 ;; esac
+
+	rx=""; tx=""; src="kernel"
+	if command -v ethtool >/dev/null 2>&1; then
+		pair=$(ethtool -S "$ifn" 2>/dev/null | awk \
+			'/RxGoodByte:/{rx=$2} /TxByte:/{tx=$2} END{if(rx!=""&&tx!="")printf "%s %s", rx, tx}')
+		if [ -n "$pair" ]; then
+			rx=${pair%% *}; tx=${pair##* }; src="mib"
+		fi
+	fi
+	if [ -z "$rx" ] || [ -z "$tx" ]; then
+		read -r rx < "/sys/class/net/$ifn/statistics/rx_bytes" 2>/dev/null || rx=0
+		read -r tx < "/sys/class/net/$ifn/statistics/tx_bytes" 2>/dev/null || tx=0
+		src="kernel"
+	fi
+	case "$rx" in ''|*[!0-9]*) rx=0 ;; esac
+	case "$tx" in ''|*[!0-9]*) tx=0 ;; esac
+
+	entry=$(printf '"%s":{"carrier":%d,"rx":%s,"tx":%s,"src":"%s"}' "$ifn" "$car" "$rx" "$tx" "$src")
+	if [ -n "$out" ]; then out="$out,$entry"; else out="$entry"; fi
+done
+
+printf '{%s}\n' "$out"
+exit 0
