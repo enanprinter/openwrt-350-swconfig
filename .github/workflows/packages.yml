@@ -136,6 +136,7 @@ jobs:
             echo "$MATRIX"
             echo "EOF_MATRIX"
           } >> "$GITHUB_OUTPUT"
+
   # ===========================================================================
   # Job 2: Build (runs once per matrix entry, in parallel)
   # ===========================================================================
@@ -480,10 +481,41 @@ jobs:
         cd openwrt
         cp .config config-before.txt
 
+        # ---------------------------------------------------------------
+        # Handle theme package config injection
+        # ---------------------------------------------------------------
         if [ "${{ github.event.inputs.attach_theme }}" = "true" ]; then
           echo "=== Injecting CONFIG_PACKAGE_luci-theme-enan-dashboard=y ===" | tee -a "../$LOGFILE"
+          # Remove any existing entries first (to avoid duplicates)
+          sed -i '/^CONFIG_PACKAGE_luci-theme-enan-dashboard=/d' .config
+          sed -i '/^# CONFIG_PACKAGE_luci-theme-enan-dashboard is not set/d' .config
           echo "CONFIG_PACKAGE_luci-theme-enan-dashboard=y" >> .config
           echo "✅ Injected theme config option." | tee -a "../$LOGFILE"
+        fi
+
+        # ---------------------------------------------------------------
+        # Handle cfw-leds package config
+        # When import_cfw_leds is FALSE → force-disable CONFIG_PACKAGE_cfw-leds
+        # ---------------------------------------------------------------
+        if [ "${{ github.event.inputs.import_cfw_leds }}" = "false" ]; then
+          echo "=== Disabling CONFIG_PACKAGE_cfw-leds in .config ===" | tee -a "../$LOGFILE"
+
+          echo "--- Before modification (any matching lines): ---" | tee -a "../$LOGFILE"
+          grep -nE '^CONFIG_PACKAGE_cfw-leds|^# CONFIG_PACKAGE_cfw-leds is not set' .config | tee -a "../$LOGFILE" || echo "(no matching lines found)" | tee -a "../$LOGFILE"
+
+          # Remove any existing "=y", "=m" or "is not set" line to avoid duplicates
+          sed -i '/^CONFIG_PACKAGE_cfw-leds=/d' .config
+          sed -i '/^# CONFIG_PACKAGE_cfw-leds is not set/d' .config
+
+          # Append the "is not set" line
+          echo "# CONFIG_PACKAGE_cfw-leds is not set" >> .config
+
+          echo "--- After modification: ---" | tee -a "../$LOGFILE"
+          grep -nE '^CONFIG_PACKAGE_cfw-leds|^# CONFIG_PACKAGE_cfw-leds is not set' .config | tee -a "../$LOGFILE" || true
+          echo "✅ cfw-leds has been force-disabled in .config" | tee -a "../$LOGFILE"
+        else
+          echo "=== cfw-leds import is enabled → leaving .config untouched for CONFIG_PACKAGE_cfw-leds ===" | tee -a "../$LOGFILE"
+          grep -nE '^CONFIG_PACKAGE_cfw-leds|^# CONFIG_PACKAGE_cfw-leds is not set' .config | tee -a "../$LOGFILE" || echo "(no CONFIG_PACKAGE_cfw-leds line in .config)" | tee -a "../$LOGFILE"
         fi
 
         echo "=== Active options BEFORE defconfig ===" | tee -a "../$LOGFILE"
@@ -513,6 +545,20 @@ jobs:
           cp .config config-after.txt
         else
           echo "✅ Target device still correctly set AFTER defconfig." | tee -a "../$LOGFILE"
+        fi
+
+        # Re-verify cfw-leds state after defconfig (in case defconfig re-enabled it)
+        if [ "${{ github.event.inputs.import_cfw_leds }}" = "false" ]; then
+          echo "=== Verifying cfw-leds is still disabled AFTER defconfig ===" | tee -a "../$LOGFILE"
+          if grep -qE '^CONFIG_PACKAGE_cfw-leds=y' .config; then
+            echo "⚠️ defconfig re-enabled cfw-leds → forcing it back to 'is not set'" | tee -a "../$LOGFILE"
+            sed -i '/^CONFIG_PACKAGE_cfw-leds=/d' .config
+            sed -i '/^# CONFIG_PACKAGE_cfw-leds is not set/d' .config
+            echo "# CONFIG_PACKAGE_cfw-leds is not set" >> .config
+            echo "✅ Re-disabled cfw-leds after defconfig." | tee -a "../$LOGFILE"
+          else
+            echo "✅ cfw-leds correctly remains disabled." | tee -a "../$LOGFILE"
+          fi
         fi
 
         echo "=== Diff before/after defconfig ===" | tee -a "../$LOGFILE"
