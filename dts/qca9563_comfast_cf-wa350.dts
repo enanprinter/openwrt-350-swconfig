@@ -155,7 +155,7 @@
  * 0x10 to avoid an address conflict with the port PHY at address 0.
  */
 &mdio0 {
-    status = "okay";
+    status = "disabled";
 
     ethernet-switch@10 {
         compatible = "qca,qca8337";
