@@ -41,19 +41,19 @@
 
 		ext_wan {
 			color = <LED_COLOR_ID_BLUE>;
-			function = "ext_wan";
+			function = "ext-wan";
 			gpios = <&gpio 7 GPIO_ACTIVE_LOW>;
 		};
 
 		ext_wlan2g {
 			color = <LED_COLOR_ID_BLUE>;
-			function = "ext_wlan2g";
+			function = "ext-wlan2g";
 			gpios = <&gpio 8 GPIO_ACTIVE_LOW>;
 		};
 
 		ext_lan {
 			color = <LED_COLOR_ID_BLUE>;
-			function = "ext_lan";
+			function = "ext-lan";
 			gpios = <&gpio 21 GPIO_ACTIVE_LOW>;
 		};
 	};
@@ -72,7 +72,7 @@
 		compatible = "linux,wdt-gpio";
 		gpios = <&gpio 6 GPIO_ACTIVE_HIGH>;
 		hw_algo = "toggle";
-		hw_margin_ms = <1000>;
+		hw_margin_ms = <500>;
 		always-running;
 	};
 };
@@ -149,45 +149,28 @@
 };
 
 /*
- * The QCA8337 switch (reports PHY ID 0x004dd036, revision 2) exposes its
- * internal port PHYs on the external MDIO bus at addresses 0-4, while its
- * register protocol lives at addresses 0x10-0x18. Anchor the switch node at
- * 0x10 to avoid an address conflict with the port PHY at address 0, the same
- * layout used by the MikroTik RB2011 DSA conversion.
+ * neheb review update (2026-09-22): use the QCA8337 internal MDIO bus for
+ * the switch port PHYs because CONFIG_AR8216_PHY is built in on ath79.
+ * Keep the switch management node on the SoC MDIO bus at address 0x10;
+ * do not mix parent-bus PHY handles with the internal MDIO bus.
  */
 &mdio0 {
 	status = "okay";
-
-	phy_port1: ethernet-phy@0 {
-		reg = <0>;
-	};
-
-	phy_port2: ethernet-phy@1 {
-		reg = <1>;
-	};
 
 	ethernet-switch@10 {
 		compatible = "qca,qca8337";
 		#address-cells = <1>;
 		#size-cells = <0>;
+		reg = <0x10>;
 
-		reg = <16>;
-
-		ethernet-ports {
+		ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			ethernet-port@0 {
+			port@0 {
 				reg = <0>;
 				ethernet = <&eth0>;
 				phy-mode = "sgmii";
-
-				/*
-				 * The stock vendor firmware programs PORT0 PAD MODE CTRL
-				 * (0x04) with 0x00080080: BIT(7) enables SGMII (handled
-				 * via phy-mode) and BIT(19) selects the SGMII RX clock
-				 * falling edge, which this board requires.
-				 */
 				qca,sgmii-rxclk-falling-edge;
 
 				fixed-link {
@@ -196,16 +179,31 @@
 				};
 			};
 
-			ethernet-port@1 {
+			port@1 {
 				reg = <1>;
 				label = "wan";
-				phy-handle = <&phy_port1>;
+				phy-mode = "internal";
+				phy-handle = <&internal_phy_port1>;
 			};
 
-			ethernet-port@2 {
+			port@2 {
 				reg = <2>;
 				label = "lan";
-				phy-handle = <&phy_port2>;
+				phy-mode = "internal";
+				phy-handle = <&internal_phy_port2>;
+			};
+		};
+
+		mdio {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			internal_phy_port1: ethernet-phy@0 {
+				reg = <0>;
+			};
+
+			internal_phy_port2: ethernet-phy@1 {
+				reg = <1>;
 			};
 		};
 	};
