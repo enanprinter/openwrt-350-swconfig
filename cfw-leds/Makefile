@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-only
 #
-# cfw-leds: stock LED behavior emulation for the COMFAST CF-WA350
+# cfw-leds package: Emulates the original Comfast LED behavior on the CF-WA350
 #
-# Installed via DEVICE_PACKAGES of the comfast_cf-wa350 device definition.
+# This package is placed under package/utils/cfw-leds/ and is included in
+# DEVICE_PACKAGES for the COMFAST CF-WA350 only.
 
 include $(TOPDIR)/rules.mk
 
@@ -18,25 +19,17 @@ include $(INCLUDE_DIR)/package.mk
 define Package/cfw-leds
   SECTION:=utils
   CATEGORY:=Utilities
-  TITLE:=COMFAST CF-WA350 stock LED behavior emulation
-  DEPENDS:=@TARGET_ath79 +ethtool
+  TITLE:=Comfast CF-WA350 stock LED behavior emulation
+  DEPENDS:=@TARGET_ath79
 endef
 
 define Package/cfw-leds/description
-Small POSIX-shell daemon reproducing the LED behavior of the stock
-COMFAST CF-WA350 firmware for the three external LEDs:
-
- - OFF when the port has no cable, SOLID on link without traffic,
-   BLINK while traffic flows, with the blink rate scaling with
-   throughput, followed by a gradually decaying afterglow so that
-   bursty traffic (e.g. video streaming) does not flicker.
-
-On this DSA-based device the WAN/LAN rates are read from the QCA8337
-hardware MIB counters (RxGoodByte/TxByte) via ethtool, so traffic
-forwarded in hardware by the DSA bridge offload is counted as well;
-the 2.4 GHz LED follows the phy1-ap0 kernel counters. The daemon
-takes exclusive ownership of blue:ext_wan, blue:ext_lan and
-blue:ext_wlan2g; the internal LEDs remain with /etc/init.d/led.
+Emulates the behavior of the external LEDs in the original firmware of the
+Comfast CF-WA350: detects link status from switch port MIB counters
+and blinks proportionally to traffic throughput, with an afterglow after
+traffic stops.
+Manages: blue:ext_wan (switch port 1), blue:ext_lan (port 2),
+and blue:ext_wlan2g (phy1-ap0 interface).
 endef
 
 define Build/Compile
