@@ -70,7 +70,6 @@
 
 	watchdog {
 		compatible = "linux,wdt-gpio";
-		status = "disabled";
 		gpios = <&gpio 6 GPIO_ACTIVE_HIGH>;
 		hw_algo = "toggle";
 		hw_margin_ms = <500>;
@@ -150,19 +149,73 @@
 };
 
 /*
- * The QCA8337 switch (reports PHY ID 0x004dd036, revision 2) exposes its
- * internal port PHYs on the external MDIO bus at addresses 0-4, while its
- * register protocol lives at addresses 0x10-0x18. Anchor the switch node at
- * 0x10 to avoid an address conflict with the port PHY at address 0.
+ * QCA8337 (AR8337 rev. 2): qca8k reaches the switch registers through the
+ * hardcoded MDIO window 0x10-0x18, while the five port PHYs answer at 0-4.
+ * Anchor the switch node at 0x10 so it does not collide with PHY 0.
+ *
+ * No PHY is declared on the external ag71xx bus and no "mdio" child is
+ * declared here, so qca8k uses its legacy port-to-PHY mapping (port N ->
+ * internal PHY N - 1) and registers "qca8k-legacy user mii" as
+ * ds->user_mii_bus. All PHY traffic then goes through the switch MDIO
+ * master, which also disconnects the external MDC/MDIO passthrough.
+ *
+ * This is what keeps CONFIG_AR8216_PHY - built into every ath79 kernel on
+ * the generic subtarget - away from the switch: the legacy bus enumerates
+ * the PHYs at the *port* addresses (1 and 2), and ar8xxx_phy_probe() only
+ * ever looks at MDIO addresses 0, 3 and 4, so it returns -ENODEV without
+ * reading a single register. With PHY nodes on the external bus instead,
+ * that driver identifies the chip through its 0x10/0x18 window, registers a
+ * bogus swconfig switch and only then fails on the missing
+ * qca,ar8327-initvals.
  */
 &mdio0 {
 	status = "okay";
 
 	ethernet-switch@10 {
-		status = "disabled";
+		compatible = "qca,qca8337";
+		reg = <0x10>;
+
+		ethernet-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			ethernet-port@0 {
+				reg = <0>;
+				ethernet = <&eth0>;
+				phy-mode = "sgmii";
+
+				/*
+				 * Stock firmware programs PORT0_PAD_MODE_CTRL (0x04)
+				 * with 0x00080080: BIT(7) enables SGMII (handled via
+				 * phy-mode) and BIT(19) selects the SGMII RX clock
+				 * falling edge, which this board requires.
+				 * PORT0_STATUS (0x7c) = 0x7e is covered by fixed-link.
+				 * qca,sgmii-enable-pll is deliberately omitted: the
+				 * binding advises it for a QCA8337 SGMII CPU port, but
+				 * this board's CPU link is stable at 1G without it.
+				 */
+				qca,sgmii-rxclk-falling-edge;
+
+				fixed-link {
+					speed = <1000>;
+					full-duplex;
+				};
+			};
+
+			ethernet-port@1 {
+				reg = <1>;
+				label = "wan";
+				phy-mode = "internal";
+			};
+
+			ethernet-port@2 {
+				reg = <2>;
+				label = "lan";
+				phy-mode = "internal";
+			};
+		};
 	};
 };
-
 
 &wdt {
 	status = "disabled";
